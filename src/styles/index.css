@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(17, 10, 34, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.6);
+}
+
+/* Background gradient & glow */
+.bg-deep-void {
+  background: radial-gradient(circle at 50% 20%, #170d33 0%, #0c081a 50%, #06040d 100%);
+}
+
+.glow-card {
+  background: rgba(18, 12, 34, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(10, 5, 25, 0.6), inset 0 0 12px rgba(139, 92, 246, 0.1);
+}
+
+.glow-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #6d28d9 100%);
+  box-shadow: 0 4px 20px rgba(124, 58, 237, 0.45);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glow-btn:hover {
+  box-shadow: 0 6px 28px rgba(147, 51, 234, 0.7);
+  transform: translateY(-1px);
+}
+
+.glow-btn:active {
+  transform: translateY(1px);
+}
+
+/* Neon text & borders */
+.neon-border {
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 15px rgba(168, 85, 247, 0.6);
+}
+
+/* Remove default number spin buttons */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
