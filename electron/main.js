@@ -170,8 +170,8 @@ ipcMain.on('window:minimize', (event, options = {}) => {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
 
-  const miniWidth = 280;
-  const miniHeight = 88;
+  const miniWidth = 296;
+  const miniHeight = 128;
   const x = screenWidth - miniWidth - 24;
   const y = screenHeight - miniHeight - 16;
 
@@ -179,7 +179,7 @@ ipcMain.on('window:minimize', (event, options = {}) => {
   savedNormalBounds = { width: currentBounds.width, height: currentBounds.height, x: currentBounds.x, y: currentBounds.y };
 
   isMiniMode = true;
-  mainWindow.setMinimumSize(240, 80);
+  mainWindow.setMinimumSize(250, 100);
   mainWindow.setBounds({ x, y, width: miniWidth, height: miniHeight });
   mainWindow.setResizable(false);
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
@@ -209,15 +209,15 @@ ipcMain.handle('window:set-mini-mode', (event, mini) => {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
 
-    const miniWidth = 280;
-    const miniHeight = 88;
+    const miniWidth = 296;
+    const miniHeight = 128;
     const x = screenWidth - miniWidth - 24;
     const y = screenHeight - miniHeight - 16;
 
     const bounds = mainWindow.getBounds();
     savedNormalBounds = { width: bounds.width, height: bounds.height, x: bounds.x, y: bounds.y };
 
-    mainWindow.setMinimumSize(240, 80);
+    mainWindow.setMinimumSize(250, 100);
     mainWindow.setBounds({ x, y, width: miniWidth, height: miniHeight });
     mainWindow.setResizable(false);
     mainWindow.setAlwaysOnTop(true, 'screen-saver');

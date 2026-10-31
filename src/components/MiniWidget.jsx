@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, SkipForward, Maximize2, Minus, Flame, Coffee, Sparkles, Music2 } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, Flame, Coffee, Sparkles, Music2 } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
 export default function MiniWidget({
@@ -16,6 +16,10 @@ export default function MiniWidget({
   mediaState,
   onMediaControl,
 }) {
+  const isPlayingMusic = mediaState?.status === 'playing';
+  const hasMusicTrack = Boolean(mediaState?.title);
+  const isMusicRunning = Boolean(mediaState?.running);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -52,36 +56,24 @@ export default function MiniWidget({
   return (
     <div
       style={{ opacity: opacity / 100 }}
-      className="w-full h-full flex flex-col justify-between p-2 rounded-2xl bg-dark-bg/95 border border-dark-border/80 shadow-neon-lg drag-region backdrop-blur-xl select-none relative overflow-hidden transition-opacity duration-300"
+      className="w-full h-full flex flex-col justify-between p-2.5 rounded-2xl bg-dark-bg/95 border border-dark-border/80 shadow-neon-lg drag-region backdrop-blur-xl select-none relative overflow-hidden transition-opacity duration-300"
     >
       {/* Background subtle neon glow */}
       <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-neon-purple/20 rounded-full blur-2xl pointer-events-none" />
 
       {/* Top row: Status info + Window Controls */}
-      <div className="flex items-center justify-between text-[11px] px-1">
-        <div className="flex items-center space-x-1.5 font-medium min-w-0 max-w-[200px]">
+      <div className="flex items-center justify-between text-[11px] px-0.5">
+        <div className="flex items-center space-x-1.5 font-medium">
           {modeInfo.icon}
-          <span className={`${modeInfo.color} font-semibold tracking-wide shrink-0`}>
+          <span className={`${modeInfo.color} font-semibold tracking-wide`}>
             {modeInfo.label}
           </span>
-          {mediaState?.status === 'playing' && mediaState.title ? (
-            <div
-              onClick={() => onMediaControl && onMediaControl('play-pause')}
-              title={`Spotify: ${mediaState.title} - ${mediaState.artist} (Clique para pausar/tocar)`}
-              className="flex items-center space-x-1 text-[10px] text-emerald-400 font-medium truncate no-drag cursor-pointer hover:underline"
-            >
-              <span>•</span>
-              <Music2 className="w-2.5 h-2.5 shrink-0 inline animate-pulse" />
-              <span className="truncate">{mediaState.title}</span>
-            </div>
-          ) : (
-            <span className="text-text-secondary text-[10px] font-mono shrink-0">
-              ({currentCycle}/{cyclesTarget})
-            </span>
-          )}
+          <span className="text-text-secondary text-[10px] font-mono">
+            ({currentCycle}/{cyclesTarget})
+          </span>
         </div>
 
-        <div className="flex items-center space-x-0.5 no-drag">
+        <div className="flex items-center space-x-1 no-drag">
           {/* Minimizar tradicional para a barra */}
           <button
             onClick={() => {
@@ -91,7 +83,7 @@ export default function MiniWidget({
               }
             }}
             title="Minimizar para a barra de tarefas do Windows"
-            className="p-1 rounded-md text-text-secondary hover:text-white hover:bg-dark-surface transition-colors"
+            className="p-1 rounded-md text-text-secondary hover:text-white hover:bg-dark-surface transition-colors cursor-pointer"
           >
             <Minus className="w-3 h-3" />
           </button>
@@ -103,54 +95,121 @@ export default function MiniWidget({
               onExpand();
             }}
             title="Expandir para tela completa"
-            className="p-1 rounded-md text-text-secondary hover:text-white hover:bg-dark-surface transition-colors"
+            className="p-1 rounded-md text-text-secondary hover:text-white hover:bg-dark-surface transition-colors cursor-pointer"
           >
             <Maximize2 className="w-3 h-3" />
           </button>
         </div>
       </div>
 
-      {/* Middle row: Large Timer + Quick Controls */}
-      <div className="flex items-center justify-between px-1">
+      {/* Middle row: Large Timer + Pomodoro Quick Controls */}
+      <div className="flex items-center justify-between px-0.5">
         {/* Digits */}
-        <div className="font-mono text-2xl font-bold tracking-tight text-white drop-shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+        <div className="font-mono text-xl font-bold tracking-tight text-white drop-shadow-[0_0_10px_rgba(168,85,247,0.4)] leading-none">
           {formatTime(timeLeft)}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons for Pomodoro */}
         <div className="flex items-center space-x-1.5 no-drag">
-          {/* Play/Pause */}
+          {/* Play/Pause Pomodoro */}
           <button
             onClick={() => {
               playClickSound();
               onTogglePlay();
             }}
-            title={isRunning ? 'Pausar' : 'Iniciar'}
-            className="w-8 h-8 rounded-full flex items-center justify-center glow-btn text-white shadow-neon-btn"
+            title={isRunning ? 'Pausar Timer' : 'Iniciar Timer'}
+            className="w-7 h-7 rounded-full flex items-center justify-center glow-btn text-white shadow-neon-btn cursor-pointer"
           >
             {isRunning ? (
-              <Pause className="w-3.5 h-3.5 fill-white" />
+              <Pause className="w-3 h-3 fill-white" />
             ) : (
-              <Play className="w-3.5 h-3.5 fill-white ml-0.5" />
+              <Play className="w-3 h-3 fill-white ml-0.5" />
             )}
           </button>
 
-          {/* Skip */}
+          {/* Skip Pomodoro */}
           <button
             onClick={() => {
               playClickSound();
               onSkip();
             }}
             title="Pular intervalo"
-            className="w-7 h-7 rounded-full flex items-center justify-center text-text-secondary hover:text-white hover:bg-dark-surface border border-dark-border/50 transition-colors"
+            className="w-6 h-6 rounded-full flex items-center justify-center text-text-secondary hover:text-white hover:bg-dark-surface border border-dark-border/50 transition-colors cursor-pointer"
           >
-            <SkipForward className="w-3.5 h-3.5" />
+            <SkipForward className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      {/* Dedicated Spotify Mini Player Bar */}
+      <div className="w-full bg-dark-card/80 border border-neon-purple/20 hover:border-neon-purple/40 rounded-xl px-2 py-1 flex items-center justify-between no-drag transition-all shadow-inner">
+        {/* Music Title & Artist */}
+        <div className="flex items-center space-x-1.5 min-w-0 flex-1 mr-1.5">
+          {isPlayingMusic ? (
+            <div className="flex items-end space-x-0.5 shrink-0 h-2.5">
+              <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-2" />
+              <span className="w-0.5 bg-neon-glow rounded-full animate-pulse h-2.5" />
+              <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-1.5" />
+            </div>
+          ) : (
+            <Music2 className="w-3 h-3 text-neon-light/60 shrink-0" />
+          )}
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold text-white truncate leading-tight">
+              {hasMusicTrack ? mediaState.title : isMusicRunning ? 'Spotify Conectado' : 'Spotify Inativo'}
+            </p>
+            {hasMusicTrack && (
+              <p className="text-[9px] text-text-secondary truncate leading-tight">
+                {mediaState.artist || 'Música'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Music Controls */}
+        <div className="flex items-center space-x-1 shrink-0">
+          <button
+            onClick={() => {
+              playClickSound();
+              onMediaControl && onMediaControl('prev');
+            }}
+            title="Música anterior"
+            className="p-1 rounded text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer"
+          >
+            <SkipBack className="w-2.5 h-2.5" />
+          </button>
+
+          <button
+            onClick={() => {
+              playClickSound();
+              onMediaControl && onMediaControl('play-pause');
+            }}
+            title={isPlayingMusic ? 'Pausar música' : 'Tocar música'}
+            className="w-5 h-5 rounded-full flex items-center justify-center glow-btn text-white shadow-neon-sm cursor-pointer"
+          >
+            {isPlayingMusic ? (
+              <Pause className="w-2.5 h-2.5 fill-white" />
+            ) : (
+              <Play className="w-2.5 h-2.5 fill-white ml-0.5" />
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              playClickSound();
+              onMediaControl && onMediaControl('next');
+            }}
+            title="Próxima música"
+            className="p-1 rounded text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer"
+          >
+            <SkipForward className="w-2.5 h-2.5" />
           </button>
         </div>
       </div>
 
       {/* Bottom Progress Bar */}
-      <div className="w-full bg-dark-surface/80 rounded-full h-1 overflow-hidden mt-0.5">
+      <div className="w-full bg-dark-surface/80 rounded-full h-1 overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-neon-violet to-neon-glow transition-all duration-300 shadow-[0_0_8px_rgba(168,85,247,0.8)]"
           style={{ width: `${progress * 100}%` }}
