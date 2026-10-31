@@ -4,9 +4,11 @@ import TopographyBackground from './components/TopographyBackground';
 import TimerFull from './components/TimerFull';
 import MiniWidget from './components/MiniWidget';
 import SettingsModal from './components/SettingsModal';
+import PlaylistsModal from './components/PlaylistsModal';
 import SplashScreen from './components/SplashScreen';
 import { loadSettings, saveSettings } from './services/storage';
 import { playBellSound } from './services/sound';
+import { getStoredAuth, fetchCurrentPlayback } from './services/spotifyWeb';
 
 function generateMinutesBadge(mins, mode) {
   try {
@@ -50,6 +52,9 @@ export default function App() {
   const [isMiniMode, setIsMiniMode] = useState(false);
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPlaylistsOpen, setIsPlaylistsOpen] = useState(false);
+  const [webAlbumArt, setWebAlbumArt] = useState(null);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState(() => Boolean(getStoredAuth().accessToken));
 
   // Estado da mídia / Spotify conectado
   const [mediaState, setMediaState] = useState({
@@ -232,6 +237,24 @@ export default function App() {
     }
   };
 
+  // Atualiza status de conexão quando a modal de configurações fecha
+  useEffect(() => {
+    setIsSpotifyConnected(Boolean(getStoredAuth().accessToken));
+  }, [isSettingsOpen]);
+
+  // Se conectado ao Spotify, busca a capa oficial do álbum em alta resolução
+  useEffect(() => {
+    if (isSpotifyConnected && mediaState.status === 'playing') {
+      fetchCurrentPlayback()
+        .then((data) => {
+          if (data?.albumArt) {
+            setWebAlbumArt(data.albumArt);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [mediaState.title, mediaState.status, isSpotifyConnected]);
+
   // Alternar Play / Pause
   const handleTogglePlay = async () => {
     const nextRunning = !isRunning;
@@ -377,10 +400,20 @@ export default function App() {
         mediaState={mediaState}
         onMediaControl={handleMediaControl}
         showMusicPlayer={settings.showMusicPlayer ?? true}
+        onOpenPlaylists={() => setIsPlaylistsOpen(true)}
+        isConnected={isSpotifyConnected}
+        albumArt={webAlbumArt}
         onTogglePlay={handleTogglePlay}
         onReset={handleReset}
         onSkip={handleSkip}
         onToggleMiniMode={() => handleSetMiniMode(true)}
+      />
+
+      {/* Modal / Tela de Playlists do Spotify */}
+      <PlaylistsModal
+        isOpen={isPlaylistsOpen}
+        onClose={() => setIsPlaylistsOpen(false)}
+        onTrackPlayed={() => {}}
       />
 
       {/* Modal / Tela de Configurações */}

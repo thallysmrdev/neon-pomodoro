@@ -14,6 +14,9 @@ export default function TimerFull({
   mediaState,
   onMediaControl,
   showMusicPlayer = true,
+  onOpenPlaylists,
+  isConnected,
+  albumArt,
   onTogglePlay,
   onReset,
   onSkip,
@@ -226,7 +229,13 @@ export default function TimerFull({
         {/* Reprodutor Integrado do Spotify */}
         {showMusicPlayer && (
           <div className="pt-1">
-            <SpotifyPlayer mediaState={mediaState} onControl={onMediaControl} />
+            <SpotifyPlayer
+              mediaState={mediaState}
+              onControl={onMediaControl}
+              onOpenPlaylists={onOpenPlaylists}
+              isConnected={isConnected}
+              albumArt={albumArt}
+            />
           </div>
         )}
       </div>

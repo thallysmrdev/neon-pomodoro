@@ -1,8 +1,14 @@
 import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music2, Disc3 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music2, ListMusic, Sparkles } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
-export default function SpotifyPlayer({ mediaState, onControl }) {
+export default function SpotifyPlayer({
+  mediaState,
+  onControl,
+  onOpenPlaylists,
+  isConnected,
+  albumArt,
+}) {
   const isPlaying = mediaState?.status === 'playing';
   const hasTrack = Boolean(mediaState?.title);
   const isRunning = Boolean(mediaState?.running);
@@ -22,14 +28,25 @@ export default function SpotifyPlayer({ mediaState, onControl }) {
     onControl('next');
   };
 
+  const handleOpenPlaylistsClick = () => {
+    playClickSound();
+    if (onOpenPlaylists) onOpenPlaylists();
+  };
+
   return (
     <div className="w-full bg-dark-card/75 border border-neon-purple/25 hover:border-neon-purple/50 rounded-2xl p-2.5 backdrop-blur-md shadow-neon-sm transition-all duration-300">
       <div className="flex items-center justify-between space-x-2">
-        {/* Left: Animated Icon + Song Details */}
+        {/* Left: Album Art / Animated Equalizer + Song Details */}
         <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-          {/* Vinyl / Equalizer Icon */}
+          {/* Vinyl / Cover Art */}
           <div className="relative w-8 h-8 rounded-xl bg-neon-violet/15 border border-neon-purple/30 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_10px_rgba(168,85,247,0.2)]">
-            {isPlaying ? (
+            {albumArt ? (
+              <img
+                src={albumArt}
+                alt={mediaState.title || 'Capa do Álbum'}
+                className="w-full h-full object-cover"
+              />
+            ) : isPlaying ? (
               <div className="flex items-end justify-center space-x-0.5 h-3.5">
                 <span className="w-0.5 bg-emerald-400 rounded-full animate-[bounce_0.8s_ease-in-out_infinite] h-2.5" />
                 <span className="w-0.5 bg-neon-glow rounded-full animate-[bounce_0.6s_ease-in-out_infinite_0.15s] h-3.5" />
@@ -61,13 +78,24 @@ export default function SpotifyPlayer({ mediaState, onControl }) {
           </div>
         </div>
 
-        {/* Right: Playback Controls */}
+        {/* Right: Playback Controls & Playlists Button */}
         <div className="flex items-center space-x-1 shrink-0">
+          {/* Open Playlists Drawer Button */}
+          {isConnected && (
+            <button
+              onClick={handleOpenPlaylistsClick}
+              title="Abrir Playlists do Spotify"
+              className="p-1.5 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer mr-0.5 shadow-sm"
+            >
+              <ListMusic className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {/* Previous Track */}
           <button
             onClick={handlePrev}
             title="Música anterior"
-            className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer"
           >
             <SkipBack className="w-3.5 h-3.5" />
           </button>
@@ -76,7 +104,7 @@ export default function SpotifyPlayer({ mediaState, onControl }) {
           <button
             onClick={handleToggle}
             title={isPlaying ? 'Pausar reprodução' : 'Iniciar reprodução'}
-            className="w-7 h-7 rounded-full flex items-center justify-center glow-btn text-white shadow-neon-sm hover:scale-105 transition-transform"
+            className="w-7 h-7 rounded-full flex items-center justify-center glow-btn text-white shadow-neon-sm hover:scale-105 transition-transform cursor-pointer"
           >
             {isPlaying ? (
               <Pause className="w-3 h-3 fill-white" />
@@ -89,7 +117,7 @@ export default function SpotifyPlayer({ mediaState, onControl }) {
           <button
             onClick={handleNext}
             title="Próxima música"
-            className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors"
+            className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer"
           >
             <SkipForward className="w-3.5 h-3.5" />
           </button>

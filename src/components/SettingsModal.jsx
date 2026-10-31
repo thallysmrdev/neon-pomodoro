@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Volume2, Bell, Monitor, Sliders, RotateCcw, Check, ChevronUp, ChevronDown, Zap, Music2 } from 'lucide-react';
 import { playBellSound, playClickSound, BELL_SOUNDS } from '../services/sound';
 import { DEFAULT_SETTINGS } from '../services/storage';
+import { getStoredAuth, saveAuth, clearAuth, fetchUserProfile } from '../services/spotifyWeb';
 
 function NumberControl({ label, value, min, max, unit, onChange }) {
   const handleIncrement = () => {
@@ -70,6 +71,10 @@ function NumberControl({ label, value, min, max, unit, onChange }) {
 export default function SettingsModal({ settings, onSave, onClose }) {
   const [formData, setFormData] = useState({ ...settings });
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [spotifyAuthData, setSpotifyAuthData] = useState(getStoredAuth);
+  const [clientIdInput, setClientIdInput] = useState(() => getStoredAuth().clientId || '');
+  const [isConnectingSpotify, setIsConnectingSpotify] = useState(false);
+  const [spotifyError, setSpotifyError] = useState('');
 
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -240,7 +245,7 @@ export default function SettingsModal({ settings, onSave, onClose }) {
         </div>
 
         {/* Sessão 3: Spotify & Reprodutor Musical */}
-        <div className="p-3 rounded-xl bg-dark-card/60 border border-dark-border space-y-2">
+        <div className="p-3 rounded-xl bg-dark-card/60 border border-dark-border space-y-3">
           <div className="flex items-center space-x-1.5 text-neon-light font-semibold">
             <Music2 className="w-3.5 h-3.5 text-neon-purple" />
             <span>Spotify & Música em Foco</span>
@@ -260,6 +265,112 @@ export default function SettingsModal({ settings, onSave, onClose }) {
               className="accent-neon-violet w-4 h-4 rounded cursor-pointer shrink-0"
             />
           </label>
+
+          {/* Integração Oficial Spotify Web API com Playlists */}
+          <div className="pt-2 border-t border-dark-border/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-white font-medium text-[11px]">Playlists & Capas (Spotify Web API)</span>
+              {spotifyAuthData.accessToken ? (
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Conectado</span>
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-dark-surface text-text-secondary border border-dark-border">
+                  Desconectado
+                </span>
+              )}
+            </div>
+
+            {spotifyAuthData.accessToken ? (
+              <div className="p-2 rounded-xl bg-dark-surface/60 border border-dark-border/60 flex items-center justify-between">
+                <div className="min-w-0 pr-2">
+                  <p className="text-white text-xs font-semibold truncate">
+                    {spotifyAuthData.userProfile?.displayName || 'Conta Conectada'}
+                  </p>
+                  <p className="text-[10px] text-emerald-400 truncate">
+                    {spotifyAuthData.userProfile?.product === 'premium' ? 'Plano Spotify Premium' : 'Conta Spotify Ativa'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSound();
+                    clearAuth();
+                    setSpotifyAuthData(getStoredAuth());
+                  }}
+                  className="py-1 px-2.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/30 text-[10px] font-medium transition-all cursor-pointer"
+                >
+                  Desconectar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-0.5">
+                <div>
+                  <label className="text-[10px] text-text-secondary block mb-1">
+                    Client ID do Spotify:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Cole seu Client ID aqui..."
+                    value={clientIdInput}
+                    onChange={(e) => setClientIdInput(e.target.value)}
+                    className="w-full bg-dark-surface/80 border border-dark-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-text-secondary/50 focus:outline-none focus:border-neon-purple font-mono"
+                  />
+                </div>
+
+                {spotifyError && (
+                  <p className="text-[10px] text-rose-400 leading-tight">
+                    {spotifyError}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isConnectingSpotify}
+                  onClick={async () => {
+                    playClickSound();
+                    if (!clientIdInput.trim()) {
+                      setSpotifyError('Por favor, informe seu Client ID.');
+                      return;
+                    }
+                    setIsConnectingSpotify(true);
+                    setSpotifyError('');
+                    try {
+                      if (window.electronAPI && window.electronAPI.spotifyStartAuth) {
+                        const tokens = await window.electronAPI.spotifyStartAuth(clientIdInput.trim());
+                        const newAuth = {
+                          ...spotifyAuthData,
+                          clientId: clientIdInput.trim(),
+                          accessToken: tokens.accessToken,
+                          refreshToken: tokens.refreshToken,
+                          expiresIn: tokens.expiresIn,
+                          tokenTimestamp: tokens.tokenTimestamp,
+                        };
+                        saveAuth(newAuth);
+                        setSpotifyAuthData(newAuth);
+                        try {
+                          const profile = await fetchUserProfile();
+                          setSpotifyAuthData((prev) => ({ ...prev, userProfile: profile }));
+                        } catch (e) {}
+                      }
+                    } catch (err) {
+                      setSpotifyError(err.message || 'Falha ao conectar.');
+                    } finally {
+                      setIsConnectingSpotify(false);
+                    }
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs tracking-wide flex items-center justify-center space-x-1.5 shadow-[0_0_12px_rgba(16,185,129,0.3)] transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isConnectingSpotify ? (
+                    <span>Aguardando autorização no navegador...</span>
+                  ) : (
+                    <span>Conectar com Spotify</span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sessão 4: Sons & Notificações */}

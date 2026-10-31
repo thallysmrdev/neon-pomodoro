@@ -25,5 +25,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('media:update', handler);
     return () => ipcRenderer.removeListener('media:update', handler);
   },
+  // Spotify Web API Auth
+  spotifyStartAuth: (clientId) => ipcRenderer.invoke('spotify:start-auth', clientId),
+  spotifyRefreshToken: (clientId, refreshToken) =>
+    ipcRenderer.invoke('spotify:refresh-token', { clientId, refreshToken }),
   isElectron: true,
 });

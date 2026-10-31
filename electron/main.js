@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const spotifyAuth = require('./spotify-auth');
 
 // Configura isolamento de dados e cache próprio para evitar bloqueio com Electron genérico
 app.name = 'NeonPomodoro';
@@ -373,6 +374,16 @@ ipcMain.on('media:control', (event, action) => {
   if (mediaBridgeProcess && mediaBridgeProcess.stdin.writable) {
     mediaBridgeProcess.stdin.write(`${action}\n`);
   }
+});
+
+// Spotify OAuth PKCE Handlers
+ipcMain.handle('spotify:start-auth', async (event, clientId) => {
+  log(`Iniciando autenticação Spotify para Client ID: ${clientId}`);
+  return await spotifyAuth.startAuth(clientId);
+});
+
+ipcMain.handle('spotify:refresh-token', async (event, { clientId, refreshToken }) => {
+  return await spotifyAuth.refreshToken(clientId, refreshToken);
 });
 
 app.whenReady().then(() => {
