@@ -415,7 +415,7 @@ ipcMain.on('media:control', (event, action) => {
 
 // Spotify OAuth PKCE Handlers
 ipcMain.handle('spotify:start-auth', async (event, clientId) => {
-  log(`Iniciando autenticação Spotify para Client ID: ${clientId}`);
+  log('Iniciando fluxo de autenticação Spotify OAuth PKCE...');
   return await spotifyAuth.startAuth(clientId);
 });
 
