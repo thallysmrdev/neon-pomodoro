@@ -1,9 +1,15 @@
 const SPOTIFY_AUTH_STORAGE_KEY = 'neon_pomodoro_spotify_auth';
 
+let cachedAuth = null;
+
 export const getStoredAuth = () => {
+  if (cachedAuth) return cachedAuth;
   try {
     const raw = localStorage.getItem(SPOTIFY_AUTH_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      cachedAuth = JSON.parse(raw);
+      return cachedAuth;
+    }
   } catch (e) {
     console.error('Erro ao ler auth do Spotify:', e);
   }
@@ -17,47 +23,83 @@ export const getStoredAuth = () => {
   };
 };
 
-export const saveAuth = (authData) => {
+export const initSpotifyAuth = async () => {
   try {
-    localStorage.setItem(SPOTIFY_AUTH_STORAGE_KEY, JSON.stringify(authData));
+    if (window.electronAPI?.getStoredAuth) {
+      const diskAuth = await window.electronAPI.getStoredAuth();
+      if (diskAuth && typeof diskAuth === 'object') {
+        const local = getStoredAuth();
+        cachedAuth = {
+          clientId: diskAuth.clientId || local.clientId || '',
+          accessToken: diskAuth.accessToken || local.accessToken || null,
+          refreshToken: diskAuth.refreshToken || local.refreshToken || null,
+          expiresIn: diskAuth.expiresIn || local.expiresIn || 3600,
+          tokenTimestamp: diskAuth.tokenTimestamp || local.tokenTimestamp || 0,
+          userProfile: diskAuth.userProfile || local.userProfile || null,
+        };
+        try {
+          localStorage.setItem(SPOTIFY_AUTH_STORAGE_KEY, JSON.stringify(cachedAuth));
+        } catch (e) {}
+        return cachedAuth;
+      }
+    }
   } catch (e) {
-    console.error('Erro ao salvar auth do Spotify:', e);
+    console.error('Erro ao sincronizar auth do Spotify:', e);
+  }
+  return getStoredAuth();
+};
+
+export const saveAuth = (authData) => {
+  const current = getStoredAuth();
+  const merged = { ...current, ...authData };
+  cachedAuth = merged;
+  try {
+    localStorage.setItem(SPOTIFY_AUTH_STORAGE_KEY, JSON.stringify(merged));
+  } catch (e) {
+    console.error('Erro ao salvar auth no localStorage:', e);
+  }
+  if (window.electronAPI?.saveAuth) {
+    window.electronAPI.saveAuth(merged).catch((err) => {
+      console.error('Erro ao salvar auth no disco:', err);
+    });
   }
 };
 
 export const clearAuth = () => {
+  const current = getStoredAuth();
+  const cleared = {
+    clientId: current.clientId || '',
+    accessToken: null,
+    refreshToken: null,
+    expiresIn: 3600,
+    tokenTimestamp: 0,
+    userProfile: null,
+  };
+  cachedAuth = cleared;
   try {
-    const prev = getStoredAuth();
-    localStorage.setItem(
-      SPOTIFY_AUTH_STORAGE_KEY,
-      JSON.stringify({
-        clientId: prev.clientId || '',
-        accessToken: null,
-        refreshToken: null,
-        expiresIn: 3600,
-        tokenTimestamp: 0,
-        userProfile: null,
-      })
-    );
+    localStorage.setItem(SPOTIFY_AUTH_STORAGE_KEY, JSON.stringify(cleared));
   } catch (e) {}
+  if (window.electronAPI?.clearAuth) {
+    window.electronAPI.clearAuth().catch(() => {});
+  }
 };
 
 export const getValidToken = async () => {
-  const auth = getStoredAuth();
-  if (!auth.accessToken) return null;
+  let auth = getStoredAuth();
+
+  // Se não temos nem accessToken nem refreshToken na memória, tenta carregar do disco
+  if (!auth.accessToken && !auth.refreshToken && window.electronAPI?.getStoredAuth) {
+    auth = await initSpotifyAuth();
+  }
 
   const now = Date.now();
   const elapsedSec = (now - (auth.tokenTimestamp || 0)) / 1000;
+  const isExpiredOrNear = !auth.accessToken || elapsedSec > (auth.expiresIn || 3600) - 120;
 
-  // Se expira em menos de 2 minutos ou já expirou, renova
-  if (elapsedSec > (auth.expiresIn || 3600) - 120) {
-    if (!auth.refreshToken || !auth.clientId) {
-      clearAuth();
-      return null;
-    }
-
+  // Se expirou ou não tem accessToken, mas temos refreshToken + clientId:
+  if (isExpiredOrNear && auth.refreshToken && auth.clientId) {
     try {
-      if (window.electronAPI && window.electronAPI.spotifyRefreshToken) {
+      if (window.electronAPI?.spotifyRefreshToken) {
         const refreshed = await window.electronAPI.spotifyRefreshToken(
           auth.clientId,
           auth.refreshToken
@@ -74,6 +116,10 @@ export const getValidToken = async () => {
       }
     } catch (err) {
       console.error('Erro ao renovar token do Spotify:', err);
+      // Se accessToken ainda não expirou formalmente, usa o atual
+      if (auth.accessToken && elapsedSec < (auth.expiresIn || 3600)) {
+        return auth.accessToken;
+      }
       return null;
     }
   }
@@ -83,7 +129,7 @@ export const getValidToken = async () => {
 
 // Requisição autenticada à API do Spotify
 const spotifyFetch = async (endpoint, options = {}) => {
-  const token = await getValidToken();
+  let token = await getValidToken();
   if (!token) throw new Error('Não autenticado com o Spotify');
 
   const url = endpoint.startsWith('http') ? endpoint : `https://api.spotify.com/v1${endpoint}`;
@@ -93,8 +139,32 @@ const spotifyFetch = async (endpoint, options = {}) => {
     ...(options.headers || {}),
   };
 
-  const res = await fetch(url, { ...options, headers });
+  let res = await fetch(url, { ...options, headers });
   if (res.status === 204) return null;
+
+  // Se receber 401 Unauthorized e temos refreshToken, tenta renovar na hora e repetir
+  if (res.status === 401) {
+    const auth = getStoredAuth();
+    if (auth.refreshToken && auth.clientId && window.electronAPI?.spotifyRefreshToken) {
+      try {
+        const refreshed = await window.electronAPI.spotifyRefreshToken(
+          auth.clientId,
+          auth.refreshToken
+        );
+        const updated = {
+          ...auth,
+          accessToken: refreshed.accessToken,
+          refreshToken: refreshed.refreshToken || auth.refreshToken,
+          expiresIn: refreshed.expiresIn,
+          tokenTimestamp: refreshed.tokenTimestamp,
+        };
+        saveAuth(updated);
+        headers.Authorization = `Bearer ${refreshed.accessToken}`;
+        res = await fetch(url, { ...options, headers });
+        if (res.status === 204) return null;
+      } catch (e) {}
+    }
+  }
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -142,29 +212,24 @@ export const fetchPlaylistTracks = async (playlistId) => {
 
   return data.items
     .filter((item) => item.track && item.track.id)
-    .map((item) => {
-      const t = item.track;
-      return {
-        id: t.id,
-        name: t.name,
-        artist: t.artists?.map((a) => a.name).join(', ') || 'Desconhecido',
-        album: t.album?.name || '',
-        image: t.album?.images?.[0]?.url || null,
-        durationMs: t.duration_ms,
-        uri: t.uri,
-      };
-    });
+    .map((item) => ({
+      id: item.track.id,
+      name: item.track.name,
+      artist: item.track.artists?.map((a) => a.name).join(', ') || 'Artista Desconhecido',
+      album: item.track.album?.name || '',
+      image: item.track.album?.images?.[0]?.url || null,
+      durationMs: item.track.duration_ms,
+      uri: item.track.uri,
+    }));
 };
 
-// Toca uma playlist inteira ou música específica
-export const startPlayback = async ({ contextUri, trackUri, offsetIndex } = {}) => {
+// Inicia reprodução via Spotify Web API
+export const startPlayback = async ({ contextUri, trackUri, offsetIndex = 0 }) => {
   const body = {};
   if (contextUri) {
     body.context_uri = contextUri;
-    if (trackUri) {
-      body.offset = { uri: trackUri };
-    } else if (typeof offsetIndex === 'number') {
-      body.offset = { position: offsetIndex };
+    if (trackUri || offsetIndex > 0) {
+      body.offset = trackUri ? { uri: trackUri } : { position: offsetIndex };
     }
   } else if (trackUri) {
     body.uris = [trackUri];
@@ -172,41 +237,24 @@ export const startPlayback = async ({ contextUri, trackUri, offsetIndex } = {}) 
 
   return await spotifyFetch('/me/player/play', {
     method: 'PUT',
-    body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined,
+    body: JSON.stringify(body),
   });
 };
 
-// Alterna Play / Pause via Web API
-export const toggleWebPlayPause = async (currentlyPlaying) => {
-  const endpoint = currentlyPlaying ? '/me/player/pause' : '/me/player/play';
-  return await spotifyFetch(endpoint, { method: 'PUT' });
-};
-
-// Pular / Voltar faixa via Web API
-export const skipWebNext = async () => {
-  return await spotifyFetch('/me/player/next', { method: 'POST' });
-};
-
-export const skipWebPrev = async () => {
-  return await spotifyFetch('/me/player/previous', { method: 'POST' });
-};
-
-// Obtém estado completo de reprodução (incluindo capa de alta resolução!)
+// Busca estado atual do player no Spotify (para pegar capa em alta resolução)
 export const fetchCurrentPlayback = async () => {
   try {
-    const data = await spotifyFetch('/me/player');
+    const data = await spotifyFetch('/me/player/currently-playing');
     if (!data || !data.item) return null;
 
     return {
-      isPlaying: Boolean(data.is_playing),
+      title: data.item.name,
+      artist: data.item.artists?.map((a) => a.name).join(', ') || '',
+      album: data.item.album?.name || '',
+      albumArt: data.item.album?.images?.[0]?.url || null,
+      isPlaying: data.is_playing,
       progressMs: data.progress_ms,
       durationMs: data.item.duration_ms,
-      trackName: data.item.name,
-      artist: data.item.artists?.map((a) => a.name).join(', ') || '',
-      albumName: data.item.album?.name || '',
-      albumArt: data.item.album?.images?.[0]?.url || null,
-      uri: data.item.uri,
-      deviceName: data.device?.name || '',
     };
   } catch (err) {
     return null;

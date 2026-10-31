@@ -423,6 +423,73 @@ ipcMain.handle('spotify:refresh-token', async (event, { clientId, refreshToken }
   return await spotifyAuth.refreshToken(clientId, refreshToken);
 });
 
+// Armazenamento Persistente no Disco do SO (%APPDATA%\NeonPomodoroApp\)
+const userDataDir = path.join(app.getPath('appData'), 'NeonPomodoroApp');
+const AUTH_FILE = path.join(userDataDir, 'spotify-auth.json');
+const SETTINGS_FILE = path.join(userDataDir, 'settings.json');
+
+function readJsonFile(filePath, defaultValue) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    log(`Erro ao ler ${filePath}: ${err}`);
+  }
+  return defaultValue;
+}
+
+function writeJsonFile(filePath, data) {
+  try {
+    if (!fs.existsSync(userDataDir)) {
+      fs.mkdirSync(userDataDir, { recursive: true });
+    }
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (err) {
+    log(`Erro ao escrever ${filePath}: ${err}`);
+  }
+}
+
+ipcMain.handle('store:get-auth', () => {
+  return readJsonFile(AUTH_FILE, {
+    clientId: '',
+    accessToken: null,
+    refreshToken: null,
+    expiresIn: 3600,
+    tokenTimestamp: 0,
+    userProfile: null,
+  });
+});
+
+ipcMain.handle('store:save-auth', (event, authData) => {
+  writeJsonFile(AUTH_FILE, authData);
+  return true;
+});
+
+ipcMain.handle('store:clear-auth', () => {
+  const current = readJsonFile(AUTH_FILE, {});
+  const cleared = {
+    clientId: current.clientId || '',
+    accessToken: null,
+    refreshToken: null,
+    expiresIn: 3600,
+    tokenTimestamp: 0,
+    userProfile: null,
+  };
+  writeJsonFile(AUTH_FILE, cleared);
+  return cleared;
+});
+
+ipcMain.handle('store:get-settings', () => {
+  return readJsonFile(SETTINGS_FILE, null);
+});
+
+ipcMain.handle('store:save-settings', (event, settingsData) => {
+  writeJsonFile(SETTINGS_FILE, settingsData);
+  return true;
+});
+
 app.whenReady().then(() => {
   log('app.whenReady resolved');
   createWindow();

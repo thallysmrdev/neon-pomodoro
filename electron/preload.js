@@ -30,5 +30,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   spotifyStartAuth: (clientId) => ipcRenderer.invoke('spotify:start-auth', clientId),
   spotifyRefreshToken: (clientId, refreshToken) =>
     ipcRenderer.invoke('spotify:refresh-token', { clientId, refreshToken }),
+  // Persistent Store (Disco Local em %APPDATA%\NeonPomodoroApp)
+  getStoredAuth: () => ipcRenderer.invoke('store:get-auth'),
+  saveAuth: (data) => ipcRenderer.invoke('store:save-auth', data),
+  clearAuth: () => ipcRenderer.invoke('store:clear-auth'),
+  getStoredSettings: () => ipcRenderer.invoke('store:get-settings'),
+  saveSettings: (data) => ipcRenderer.invoke('store:save-settings', data),
   isElectron: true,
 });

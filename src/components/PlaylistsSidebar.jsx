@@ -18,6 +18,7 @@ import {
   fetchPlaylistTracks,
   startPlayback,
   getStoredAuth,
+  initSpotifyAuth,
 } from '../services/spotifyWeb';
 
 export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
@@ -31,9 +32,12 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
   const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
-    const auth = getStoredAuth();
-    setUserProfile(auth.userProfile);
-    loadPlaylists();
+    initSpotifyAuth().then((auth) => {
+      if (auth?.userProfile) {
+        setUserProfile(auth.userProfile);
+      }
+      loadPlaylists();
+    });
   }, []);
 
   const loadPlaylists = async () => {

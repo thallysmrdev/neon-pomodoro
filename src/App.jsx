@@ -6,9 +6,9 @@ import MiniWidget from './components/MiniWidget';
 import SettingsModal from './components/SettingsModal';
 import PlaylistsSidebar from './components/PlaylistsSidebar';
 import SplashScreen from './components/SplashScreen';
-import { loadSettings, saveSettings } from './services/storage';
+import { loadSettings, saveSettings, initSettings } from './services/storage';
 import { playBellSound } from './services/sound';
-import { getStoredAuth, fetchCurrentPlayback } from './services/spotifyWeb';
+import { getStoredAuth, fetchCurrentPlayback, initSpotifyAuth, getValidToken } from './services/spotifyWeb';
 
 function generateMinutesBadge(mins, mode) {
   try {
@@ -89,6 +89,28 @@ export default function App() {
         setIsAlwaysOnTop(Boolean(flag));
       });
     }
+  }, []);
+
+  // Inicialização do Spotify Auth & Configurações persistentes no disco (%APPDATA%)
+  useEffect(() => {
+    async function init() {
+      // 1. Carrega configurações salvas no disco
+      const diskSettings = await initSettings();
+      if (diskSettings) {
+        setSettings(diskSettings);
+      }
+
+      // 2. Carrega credenciais do Spotify salvas no disco
+      const auth = await initSpotifyAuth();
+      if (auth?.clientId && (auth.refreshToken || auth.accessToken)) {
+        // Renova ou valida o token de forma silenciosa e automática
+        const validToken = await getValidToken();
+        setIsSpotifyConnected(Boolean(validToken));
+      } else {
+        setIsSpotifyConnected(Boolean(auth?.accessToken));
+      }
+    }
+    init();
   }, []);
 
   // Timer Tick Interval

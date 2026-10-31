@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Volume2, Bell, Monitor, Sliders, RotateCcw, Check, ChevronUp, ChevronDown, Zap, Music2 } from 'lucide-react';
 import { playBellSound, playClickSound, BELL_SOUNDS } from '../services/sound';
 import { DEFAULT_SETTINGS } from '../services/storage';
-import { getStoredAuth, saveAuth, clearAuth, fetchUserProfile } from '../services/spotifyWeb';
+import { getStoredAuth, saveAuth, clearAuth, fetchUserProfile, initSpotifyAuth } from '../services/spotifyWeb';
 
 function NumberControl({ label, value, min, max, unit, onChange }) {
   const handleIncrement = () => {
@@ -75,6 +75,18 @@ export default function SettingsModal({ settings, onSave, onClose }) {
   const [clientIdInput, setClientIdInput] = useState(() => getStoredAuth().clientId || '');
   const [isConnectingSpotify, setIsConnectingSpotify] = useState(false);
   const [spotifyError, setSpotifyError] = useState('');
+
+  // Sincroniza credenciais do disco do SO (%APPDATA%) ao abrir a modal
+  useEffect(() => {
+    initSpotifyAuth().then((auth) => {
+      if (auth) {
+        setSpotifyAuthData(auth);
+        if (auth.clientId && !clientIdInput) {
+          setClientIdInput(auth.clientId);
+        }
+      }
+    });
+  }, []);
 
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -351,7 +363,9 @@ export default function SettingsModal({ settings, onSave, onClose }) {
                         setSpotifyAuthData(newAuth);
                         try {
                           const profile = await fetchUserProfile();
-                          setSpotifyAuthData((prev) => ({ ...prev, userProfile: profile }));
+                          const fullAuth = { ...newAuth, userProfile: profile };
+                          saveAuth(fullAuth);
+                          setSpotifyAuthData(fullAuth);
                         } catch (e) {}
                       }
                     } catch (err) {

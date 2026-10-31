@@ -17,11 +17,15 @@ export const DEFAULT_SETTINGS = {
   showMusicPlayer: true,
 };
 
+let cachedSettings = null;
+
 export const loadSettings = () => {
+  if (cachedSettings) return cachedSettings;
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      cachedSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      return cachedSettings;
     }
   } catch (e) {
     console.error('Falha ao carregar configurações:', e);
@@ -29,10 +33,34 @@ export const loadSettings = () => {
   return DEFAULT_SETTINGS;
 };
 
+export const initSettings = async () => {
+  try {
+    if (window.electronAPI?.getStoredSettings) {
+      const diskSettings = await window.electronAPI.getStoredSettings();
+      if (diskSettings && typeof diskSettings === 'object') {
+        cachedSettings = { ...DEFAULT_SETTINGS, ...diskSettings };
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cachedSettings));
+        } catch (e) {}
+        return cachedSettings;
+      }
+    }
+  } catch (e) {
+    console.error('Falha ao carregar configurações do disco:', e);
+  }
+  return loadSettings();
+};
+
 export const saveSettings = (newSettings) => {
+  cachedSettings = newSettings;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
   } catch (e) {
-    console.error('Falha ao salvar configurações:', e);
+    console.error('Falha ao salvar configurações no localStorage:', e);
+  }
+  if (window.electronAPI?.saveSettings) {
+    window.electronAPI.saveSettings(newSettings).catch((err) => {
+      console.error('Falha ao salvar configurações no disco:', err);
+    });
   }
 };
