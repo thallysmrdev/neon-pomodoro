@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, SkipForward, Maximize2, Minus, Flame, Coffee, Sparkles } from 'lucide-react';
+import { Play, Pause, SkipForward, Maximize2, Minus, Flame, Coffee, Sparkles, Music2 } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
 export default function MiniWidget({
@@ -12,7 +12,9 @@ export default function MiniWidget({
   onTogglePlay,
   onSkip,
   onExpand,
-  opacity = 95
+  opacity = 95,
+  mediaState,
+  onMediaControl,
 }) {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -57,14 +59,26 @@ export default function MiniWidget({
 
       {/* Top row: Status info + Window Controls */}
       <div className="flex items-center justify-between text-[11px] px-1">
-        <div className="flex items-center space-x-1.5 font-medium">
+        <div className="flex items-center space-x-1.5 font-medium min-w-0 max-w-[200px]">
           {modeInfo.icon}
-          <span className={`${modeInfo.color} font-semibold tracking-wide`}>
+          <span className={`${modeInfo.color} font-semibold tracking-wide shrink-0`}>
             {modeInfo.label}
           </span>
-          <span className="text-text-secondary text-[10px] font-mono">
-            ({currentCycle}/{cyclesTarget})
-          </span>
+          {mediaState?.status === 'playing' && mediaState.title ? (
+            <div
+              onClick={() => onMediaControl && onMediaControl('play-pause')}
+              title={`Spotify: ${mediaState.title} - ${mediaState.artist} (Clique para pausar/tocar)`}
+              className="flex items-center space-x-1 text-[10px] text-emerald-400 font-medium truncate no-drag cursor-pointer hover:underline"
+            >
+              <span>•</span>
+              <Music2 className="w-2.5 h-2.5 shrink-0 inline animate-pulse" />
+              <span className="truncate">{mediaState.title}</span>
+            </div>
+          ) : (
+            <span className="text-text-secondary text-[10px] font-mono shrink-0">
+              ({currentCycle}/{cyclesTarget})
+            </span>
+          )}
         </div>
 
         <div className="flex items-center space-x-0.5 no-drag">

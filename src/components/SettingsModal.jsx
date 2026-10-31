@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Volume2, Bell, Monitor, Sliders, RotateCcw, Check, ChevronUp, ChevronDown, Zap } from 'lucide-react';
+import { ArrowLeft, Volume2, Bell, Monitor, Sliders, RotateCcw, Check, ChevronUp, ChevronDown, Zap, Music2 } from 'lucide-react';
 import { playBellSound, playClickSound, BELL_SOUNDS } from '../services/sound';
 import { DEFAULT_SETTINGS } from '../services/storage';
 
@@ -239,7 +239,30 @@ export default function SettingsModal({ settings, onSave, onClose }) {
           </div>
         </div>
 
-        {/* Sessão 3: Sons & Notificações */}
+        {/* Sessão 3: Spotify & Reprodutor Musical */}
+        <div className="p-3 rounded-xl bg-dark-card/60 border border-dark-border space-y-2">
+          <div className="flex items-center space-x-1.5 text-neon-light font-semibold">
+            <Music2 className="w-3.5 h-3.5 text-neon-purple" />
+            <span>Spotify & Música em Foco</span>
+          </div>
+
+          <label className="flex items-center justify-between cursor-pointer py-1">
+            <div className="pr-3">
+              <div className="text-white font-medium">Exibir Reprodutor de Música</div>
+              <div className="text-[11px] text-text-secondary leading-snug">
+                Mostra a faixa atual do Spotify na tela principal com controles de Play, Pause e Troca de música
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={Boolean(formData.showMusicPlayer ?? true)}
+              onChange={(e) => handleChange('showMusicPlayer', e.target.checked)}
+              className="accent-neon-violet w-4 h-4 rounded cursor-pointer shrink-0"
+            />
+          </label>
+        </div>
+
+        {/* Sessão 4: Sons & Notificações */}
         <div className="p-3 rounded-xl bg-dark-card/60 border border-dark-border space-y-3">
           <div className="flex items-center space-x-1.5 text-neon-light font-semibold">
             <Bell className="w-3.5 h-3.5 text-neon-purple" />

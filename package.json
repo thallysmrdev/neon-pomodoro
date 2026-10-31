@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
     "build": "vite build",
+    "build:bridge": "dotnet publish native-bridge -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o electron/bin",
     "start": "electron ."
   },
   "keywords": [

@@ -51,6 +51,16 @@ export default function App() {
   const [isAlwaysOnTop, setIsAlwaysOnTop] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  // Estado da mídia / Spotify conectado
+  const [mediaState, setMediaState] = useState({
+    running: false,
+    status: 'not_running',
+    title: '',
+    artist: '',
+    album: '',
+    source: 'Spotify',
+  });
+
   const timerRef = useRef(null);
 
   // Calcula duração total do modo atual em segundos
@@ -199,6 +209,29 @@ export default function App() {
     }
   }, []);
 
+  // Sincronização em tempo real com Spotify / Windows Media
+  useEffect(() => {
+    if (window.electronAPI) {
+      if (window.electronAPI.getMediaState) {
+        window.electronAPI.getMediaState().then((state) => {
+          if (state) setMediaState(state);
+        });
+      }
+      if (window.electronAPI.onMediaUpdate) {
+        const cleanup = window.electronAPI.onMediaUpdate((state) => {
+          if (state) setMediaState(state);
+        });
+        return cleanup;
+      }
+    }
+  }, []);
+
+  const handleMediaControl = (action) => {
+    if (window.electronAPI && window.electronAPI.controlMedia) {
+      window.electronAPI.controlMedia(action);
+    }
+  };
+
   // Alternar Play / Pause
   const handleTogglePlay = async () => {
     const nextRunning = !isRunning;
@@ -309,6 +342,8 @@ export default function App() {
           onSkip={handleSkip}
           onExpand={() => handleSetMiniMode(false)}
           opacity={settings.widgetOpacity}
+          mediaState={mediaState}
+          onMediaControl={handleMediaControl}
         />
       </div>
     );
@@ -339,6 +374,9 @@ export default function App() {
         currentCycle={currentCycle}
         cyclesTarget={settings.cyclesTarget}
         autoStartCycles={settings.autoStartCycles}
+        mediaState={mediaState}
+        onMediaControl={handleMediaControl}
+        showMusicPlayer={settings.showMusicPlayer ?? true}
         onTogglePlay={handleTogglePlay}
         onReset={handleReset}
         onSkip={handleSkip}

@@ -17,5 +17,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('window:mini-mode-changed', handler);
     return () => ipcRenderer.removeListener('window:mini-mode-changed', handler);
   },
+  // Spotify / Windows Media Controller
+  getMediaState: () => ipcRenderer.invoke('media:get-state'),
+  controlMedia: (action) => ipcRenderer.send('media:control', action),
+  onMediaUpdate: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('media:update', handler);
+    return () => ipcRenderer.removeListener('media:update', handler);
+  },
   isElectron: true,
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Play, Pause, RotateCcw, SkipForward, Minimize2, Zap } from 'lucide-react';
 import { playClickSound } from '../services/sound';
+import SpotifyPlayer from './SpotifyPlayer';
 
 export default function TimerFull({
   timeLeft,
@@ -10,6 +11,9 @@ export default function TimerFull({
   currentCycle,
   cyclesTarget,
   autoStartCycles,
+  mediaState,
+  onMediaControl,
+  showMusicPlayer = true,
   onTogglePlay,
   onReset,
   onSkip,
@@ -178,7 +182,7 @@ export default function TimerFull({
         </button>
 
         {/* Secondary controls row */}
-        <div className="flex items-center justify-around px-2 pt-1">
+        <div className="flex items-center justify-around px-2 pt-0.5">
           {/* Reset */}
           <button
             onClick={() => {
@@ -186,9 +190,9 @@ export default function TimerFull({
               onReset();
             }}
             title="Resetar tempo do ciclo atual"
-            className="flex items-center space-x-1.5 text-xs text-text-secondary hover:text-white transition-colors p-2 rounded-lg hover:bg-dark-surface/60"
+            className="flex items-center space-x-1.5 text-xs text-text-secondary hover:text-white transition-colors p-1.5 rounded-lg hover:bg-dark-surface/60"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
             <span>Resetar</span>
           </button>
 
@@ -199,9 +203,9 @@ export default function TimerFull({
               onToggleMiniMode();
             }}
             title="Modo Widget Flutuante (Always on Top)"
-            className="flex items-center space-x-1.5 text-xs text-neon-light hover:text-white transition-colors p-2 rounded-lg hover:bg-neon-violet/20 border border-neon-purple/30 shadow-neon-sm"
+            className="flex items-center space-x-1.5 text-xs text-neon-light hover:text-white transition-colors p-1.5 rounded-lg hover:bg-neon-violet/20 border border-neon-purple/30 shadow-neon-sm"
           >
-            <Minimize2 className="w-4 h-4" />
+            <Minimize2 className="w-3.5 h-3.5" />
             <span>Modo Flutuante</span>
           </button>
 
@@ -212,12 +216,19 @@ export default function TimerFull({
               onSkip();
             }}
             title="Pular para próximo intervalo"
-            className="flex items-center space-x-1.5 text-xs text-text-secondary hover:text-white transition-colors p-2 rounded-lg hover:bg-dark-surface/60"
+            className="flex items-center space-x-1.5 text-xs text-text-secondary hover:text-white transition-colors p-1.5 rounded-lg hover:bg-dark-surface/60"
           >
-            <SkipForward className="w-4 h-4" />
+            <SkipForward className="w-3.5 h-3.5" />
             <span>Pular</span>
           </button>
         </div>
+
+        {/* Reprodutor Integrado do Spotify */}
+        {showMusicPlayer && (
+          <div className="pt-1">
+            <SpotifyPlayer mediaState={mediaState} onControl={onMediaControl} />
+          </div>
+        )}
       </div>
     </div>
   );

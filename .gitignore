@@ -26,3 +26,8 @@ $RECYCLE.BIN/
 .idea/
 *.swp
 *.swo
+
+# .NET build artifacts
+native-bridge/bin/
+native-bridge/obj/
+*.pdb

@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS = {
   alwaysOnTop: true,
   autoMiniModeOnStart: true,
   widgetOpacity: 95,
+  showMusicPlayer: true,
 };
 
 export const loadSettings = () => {

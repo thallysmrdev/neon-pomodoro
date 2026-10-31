@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } = require('electron');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
@@ -284,18 +285,115 @@ ipcMain.on('timer:update', (event, data) => {
   }
 });
 
+// ==========================================
+// Spotify / Windows Media Native Bridge
+// ==========================================
+let mediaBridgeProcess = null;
+let currentMediaState = {
+  running: false,
+  status: 'not_running',
+  title: '',
+  artist: '',
+  album: '',
+  source: 'Spotify',
+};
+
+function startMediaBridge() {
+  const bridgeExe = path.join(__dirname, 'bin', 'native-bridge.exe');
+  if (!fs.existsSync(bridgeExe)) {
+    log(`native-bridge.exe não encontrado em ${bridgeExe}`);
+    return;
+  }
+
+  try {
+    mediaBridgeProcess = spawn(bridgeExe, [], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+
+    log(`Media bridge iniciado (PID: ${mediaBridgeProcess.pid})`);
+
+    let buffer = '';
+    mediaBridgeProcess.stdout.on('data', (chunk) => {
+      buffer += chunk.toString();
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // guarda pedaço incompleto se houver
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (line.startsWith('MEDIA_UPDATE:')) {
+          try {
+            const jsonStr = line.substring('MEDIA_UPDATE:'.length);
+            const data = JSON.parse(jsonStr);
+            currentMediaState = data;
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('media:update', data);
+            }
+          } catch (err) {
+            log(`Erro ao fazer parse de MEDIA_UPDATE: ${err}`);
+          }
+        }
+      }
+    });
+
+    mediaBridgeProcess.stderr.on('data', (data) => {
+      log(`Media bridge stderr: ${data.toString()}`);
+    });
+
+    mediaBridgeProcess.on('exit', (code) => {
+      log(`Media bridge finalizado com código ${code}`);
+      mediaBridgeProcess = null;
+      if (!isQuitting) {
+        setTimeout(startMediaBridge, 3000);
+      }
+    });
+  } catch (err) {
+    log(`Falha ao iniciar media bridge: ${err}`);
+  }
+}
+
+function stopMediaBridge() {
+  if (mediaBridgeProcess) {
+    try {
+      if (mediaBridgeProcess.stdin.writable) {
+        mediaBridgeProcess.stdin.write('exit\n');
+      }
+      setTimeout(() => {
+        if (mediaBridgeProcess) {
+          try { mediaBridgeProcess.kill(); } catch (e) {}
+        }
+      }, 400);
+    } catch (e) {}
+  }
+}
+
+ipcMain.handle('media:get-state', () => currentMediaState);
+
+ipcMain.on('media:control', (event, action) => {
+  if (mediaBridgeProcess && mediaBridgeProcess.stdin.writable) {
+    mediaBridgeProcess.stdin.write(`${action}\n`);
+  }
+});
+
 app.whenReady().then(() => {
   log('app.whenReady resolved');
   createWindow();
   createTray();
+  startMediaBridge();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+  stopMediaBridge();
+});
+
 app.on('window-all-closed', () => {
   log('app window-all-closed event fired');
+  stopMediaBridge();
   if (process.platform !== 'darwin') {
     app.quit();
   }
