@@ -240,6 +240,43 @@ ipcMain.handle('window:set-mini-mode', (event, mini) => {
   return isMiniMode;
 });
 
+// IPC Handler: Expansão / Recolhimento da aba lateral (Playlists do Spotify)
+ipcMain.handle('window:set-sidebar-expanded', (event, expanded) => {
+  if (!mainWindow || mainWindow.isDestroyed() || isMiniMode) return false;
+
+  const bounds = mainWindow.getBounds();
+  const baseWidth = 380;
+  const expandedWidth = 720;
+  const targetWidth = expanded ? expandedWidth : baseWidth;
+
+  if (bounds.width === targetWidth) return expanded;
+
+  let newX = bounds.x;
+  if (expanded) {
+    const currentDisplay = screen.getDisplayMatching(bounds);
+    const maxRight = currentDisplay.workArea.x + currentDisplay.workArea.width;
+    if (newX + expandedWidth > maxRight) {
+      newX = Math.max(currentDisplay.workArea.x, maxRight - expandedWidth - 16);
+    }
+  }
+
+  mainWindow.setBounds({
+    x: newX,
+    y: bounds.y,
+    width: targetWidth,
+    height: bounds.height || 620,
+  });
+
+  savedNormalBounds = {
+    x: newX,
+    y: bounds.y,
+    width: targetWidth,
+    height: bounds.height || 620,
+  };
+
+  return expanded;
+});
+
 // IPC Handler: Atualização do Timer na Barra de Tarefas e Tray
 ipcMain.on('timer:update', (event, data) => {
   if (!mainWindow || mainWindow.isDestroyed()) return;

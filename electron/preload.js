@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setAlwaysOnTop: (flag) => ipcRenderer.invoke('window:set-always-on-top', flag),
   getAlwaysOnTop: () => ipcRenderer.invoke('window:get-always-on-top'),
   setMiniMode: (isMini) => ipcRenderer.invoke('window:set-mini-mode', isMini),
+  setSidebarExpanded: (expanded) => ipcRenderer.invoke('window:set-sidebar-expanded', expanded),
   updateTimerState: (state) => ipcRenderer.send('timer:update', state),
   onTrayAction: (callback) => {
     const handler = (event, action) => callback(action);

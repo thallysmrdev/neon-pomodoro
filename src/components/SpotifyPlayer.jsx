@@ -6,6 +6,8 @@ export default function SpotifyPlayer({
   mediaState,
   onControl,
   onOpenPlaylists,
+  onTogglePlaylists,
+  isPlaylistsOpen = false,
   isConnected,
   albumArt,
 }) {
@@ -28,9 +30,13 @@ export default function SpotifyPlayer({
     onControl('next');
   };
 
-  const handleOpenPlaylistsClick = () => {
+  const handleTogglePlaylistsClick = () => {
     playClickSound();
-    if (onOpenPlaylists) onOpenPlaylists();
+    if (onTogglePlaylists) {
+      onTogglePlaylists();
+    } else if (onOpenPlaylists) {
+      onOpenPlaylists();
+    }
   };
 
   return (
@@ -80,12 +86,16 @@ export default function SpotifyPlayer({
 
         {/* Right: Playback Controls & Playlists Button */}
         <div className="flex items-center space-x-1 shrink-0">
-          {/* Open Playlists Drawer Button */}
+          {/* Toggle Playlists Lateral Drawer Button */}
           {isConnected && (
             <button
-              onClick={handleOpenPlaylistsClick}
-              title="Abrir Playlists do Spotify"
-              className="p-1.5 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer mr-0.5 shadow-sm"
+              onClick={handleTogglePlaylistsClick}
+              title={isPlaylistsOpen ? 'Ocultar aba lateral de playlists' : 'Abrir playlists na aba lateral'}
+              className={`p-1.5 rounded-lg transition-all cursor-pointer mr-0.5 shadow-sm ${
+                isPlaylistsOpen
+                  ? 'text-white bg-emerald-500/30 border border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.35)]'
+                  : 'text-emerald-400 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30'
+              }`}
             >
               <ListMusic className="w-3.5 h-3.5" />
             </button>

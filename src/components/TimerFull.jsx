@@ -15,6 +15,8 @@ export default function TimerFull({
   onMediaControl,
   showMusicPlayer = true,
   onOpenPlaylists,
+  onTogglePlaylists,
+  isPlaylistsOpen,
   isConnected,
   albumArt,
   onTogglePlay,
@@ -233,6 +235,8 @@ export default function TimerFull({
               mediaState={mediaState}
               onControl={onMediaControl}
               onOpenPlaylists={onOpenPlaylists}
+              onTogglePlaylists={onTogglePlaylists}
+              isPlaylistsOpen={isPlaylistsOpen}
               isConnected={isConnected}
               albumArt={albumArt}
             />

@@ -4,7 +4,7 @@ import TopographyBackground from './components/TopographyBackground';
 import TimerFull from './components/TimerFull';
 import MiniWidget from './components/MiniWidget';
 import SettingsModal from './components/SettingsModal';
-import PlaylistsModal from './components/PlaylistsModal';
+import PlaylistsSidebar from './components/PlaylistsSidebar';
 import SplashScreen from './components/SplashScreen';
 import { loadSettings, saveSettings } from './services/storage';
 import { playBellSound } from './services/sound';
@@ -319,10 +319,33 @@ export default function App() {
 
   // Alternar Modo Mini Widget
   const handleSetMiniMode = async (targetMini) => {
+    if (targetMini && isPlaylistsOpen) {
+      setIsPlaylistsOpen(false);
+      if (window.electronAPI?.setSidebarExpanded) {
+        await window.electronAPI.setSidebarExpanded(false);
+      }
+    }
     setIsMiniMode(targetMini);
     if (window.electronAPI) {
       await window.electronAPI.setMiniMode(targetMini);
     }
+  };
+
+  // Alternar / Abrir / Ocultar Aba Lateral de Playlists do Spotify
+  const handleTogglePlaylists = async (forceVal) => {
+    const nextVal = typeof forceVal === 'boolean' ? forceVal : !isPlaylistsOpen;
+    setIsPlaylistsOpen(nextVal);
+    if (window.electronAPI?.setSidebarExpanded) {
+      await window.electronAPI.setSidebarExpanded(nextVal);
+    }
+  };
+
+  // Abrir tela de configurações
+  const handleOpenSettings = async () => {
+    if (isPlaylistsOpen) {
+      await handleTogglePlaylists(false);
+    }
+    setIsSettingsOpen(true);
   };
 
   // Alternar Always on Top
@@ -379,7 +402,7 @@ export default function App() {
       <TitleBar
         isAlwaysOnTop={isAlwaysOnTop}
         onToggleAlwaysOnTop={() => handleToggleAlwaysOnTop()}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={handleOpenSettings}
         onCloseSettings={() => setIsSettingsOpen(false)}
         isSettingsOpen={isSettingsOpen}
         onToggleMiniMode={() => handleSetMiniMode(true)}
@@ -388,33 +411,46 @@ export default function App() {
       {/* Arte Topográfica de Fundo (Montanhas Neon Violeta da Referência) */}
       <TopographyBackground />
 
-      {/* Conteúdo Principal do Timer */}
-      <TimerFull
-        timeLeft={timeLeft}
-        totalDuration={totalDuration}
-        isRunning={isRunning}
-        mode={mode}
-        currentCycle={currentCycle}
-        cyclesTarget={settings.cyclesTarget}
-        autoStartCycles={settings.autoStartCycles}
-        mediaState={mediaState}
-        onMediaControl={handleMediaControl}
-        showMusicPlayer={settings.showMusicPlayer ?? true}
-        onOpenPlaylists={() => setIsPlaylistsOpen(true)}
-        isConnected={isSpotifyConnected}
-        albumArt={webAlbumArt}
-        onTogglePlay={handleTogglePlay}
-        onReset={handleReset}
-        onSkip={handleSkip}
-        onToggleMiniMode={() => handleSetMiniMode(true)}
-      />
+      {/* Corpo Horizontal: Home + Aba Lateral de Playlists */}
+      <div className="flex-1 flex flex-row min-h-0 overflow-hidden relative z-10">
+        {/* Painel Principal (Home - Pomodoro Timer) */}
+        <div
+          className={`h-full flex flex-col justify-between overflow-hidden transition-all duration-300 ${
+            isPlaylistsOpen ? 'w-[380px] shrink-0 border-r border-dark-border/60' : 'w-full'
+          }`}
+        >
+          <TimerFull
+            timeLeft={timeLeft}
+            totalDuration={totalDuration}
+            isRunning={isRunning}
+            mode={mode}
+            currentCycle={currentCycle}
+            cyclesTarget={settings.cyclesTarget}
+            autoStartCycles={settings.autoStartCycles}
+            mediaState={mediaState}
+            onMediaControl={handleMediaControl}
+            showMusicPlayer={settings.showMusicPlayer ?? true}
+            isPlaylistsOpen={isPlaylistsOpen}
+            onTogglePlaylists={handleTogglePlaylists}
+            isConnected={isSpotifyConnected}
+            albumArt={webAlbumArt}
+            onTogglePlay={handleTogglePlay}
+            onReset={handleReset}
+            onSkip={handleSkip}
+            onToggleMiniMode={() => handleSetMiniMode(true)}
+          />
+        </div>
 
-      {/* Modal / Tela de Playlists do Spotify */}
-      <PlaylistsModal
-        isOpen={isPlaylistsOpen}
-        onClose={() => setIsPlaylistsOpen(false)}
-        onTrackPlayed={() => {}}
-      />
+        {/* Aba Lateral de Playlists (Mantém a Home visível) */}
+        {isPlaylistsOpen && (
+          <aside className="flex-1 h-full min-w-[320px] bg-dark-bg/95 backdrop-blur-2xl flex flex-col overflow-hidden animate-in slide-in-from-right-3 duration-200">
+            <PlaylistsSidebar
+              onClose={() => handleTogglePlaylists(false)}
+              onTrackPlayed={() => {}}
+            />
+          </aside>
+        )}
+      </div>
 
       {/* Modal / Tela de Configurações */}
       {isSettingsOpen && (
