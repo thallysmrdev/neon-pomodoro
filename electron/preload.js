@@ -36,5 +36,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   clearAuth: () => ipcRenderer.invoke('store:clear-auth'),
   getStoredSettings: () => ipcRenderer.invoke('store:get-settings'),
   saveSettings: (data) => ipcRenderer.invoke('store:save-settings', data),
+  getPinnedPlaylists: () => ipcRenderer.invoke('store:get-pinned-playlists'),
+  savePinnedPlaylists: (list) => ipcRenderer.invoke('store:save-pinned-playlists', list),
   isElectron: true,
 });

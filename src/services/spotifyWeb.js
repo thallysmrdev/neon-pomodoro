@@ -1,4 +1,5 @@
 const SPOTIFY_AUTH_STORAGE_KEY = 'neon_pomodoro_spotify_auth';
+const PINNED_PLAYLISTS_STORAGE_KEY = 'neon_pomodoro_pinned_playlists';
 
 let cachedAuth = null;
 
@@ -87,7 +88,6 @@ export const clearAuth = () => {
 export const getValidToken = async () => {
   let auth = getStoredAuth();
 
-  // Se não temos nem accessToken nem refreshToken na memória, tenta carregar do disco
   if (!auth.accessToken && !auth.refreshToken && window.electronAPI?.getStoredAuth) {
     auth = await initSpotifyAuth();
   }
@@ -96,7 +96,6 @@ export const getValidToken = async () => {
   const elapsedSec = (now - (auth.tokenTimestamp || 0)) / 1000;
   const isExpiredOrNear = !auth.accessToken || elapsedSec > (auth.expiresIn || 3600) - 120;
 
-  // Se expirou ou não tem accessToken, mas temos refreshToken + clientId:
   if (isExpiredOrNear && auth.refreshToken && auth.clientId) {
     try {
       if (window.electronAPI?.spotifyRefreshToken) {
@@ -141,7 +140,6 @@ export const spotifyFetch = async (endpoint, options = {}) => {
   let res = await fetch(url, { ...options, headers });
   if (res.status === 204) return null;
 
-  // Se receber 401 Unauthorized e temos refreshToken, tenta renovar na hora e repetir
   if (res.status === 401) {
     const auth = getStoredAuth();
     if (auth.refreshToken && auth.clientId && window.electronAPI?.spotifyRefreshToken) {
@@ -205,43 +203,135 @@ export const fetchUserProfile = async () => {
     id: user.id,
     displayName: user.display_name || user.id,
     email: user.email,
-    product: user.product, // 'premium' ou 'free'
+    product: user.product,
     avatar: user.images?.[0]?.url || null,
   };
   saveAuth(auth);
   return auth.userProfile;
 };
 
-// Busca todas as Playlists e Álbuns Salvos da biblioteca do usuário
+// Extrator seguro de ID de playlist por link ou URI
+export const extractPlaylistId = (input) => {
+  if (!input) return null;
+  const trimmed = input.trim();
+  const urlMatch = trimmed.match(/playlist\/([a-zA-Z0-9]+)/);
+  if (urlMatch) return urlMatch[1];
+  const uriMatch = trimmed.match(/spotify:playlist:([a-zA-Z0-9]+)/);
+  if (uriMatch) return uriMatch[1];
+  if (/^[a-zA-Z0-9]{20,25}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return null;
+};
+
+// Gerenciamento de playlists fixadas / adicionadas manualmente
+export const getPinnedPlaylists = async () => {
+  try {
+    if (window.electronAPI?.getPinnedPlaylists) {
+      const diskList = await window.electronAPI.getPinnedPlaylists();
+      if (Array.isArray(diskList)) return diskList;
+    }
+    const raw = localStorage.getItem(PINNED_PLAYLISTS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Erro ao ler playlists fixadas:', e);
+  }
+  return [];
+};
+
+export const savePinnedPlaylists = async (list) => {
+  try {
+    localStorage.setItem(PINNED_PLAYLISTS_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {}
+  if (window.electronAPI?.savePinnedPlaylists) {
+    await window.electronAPI.savePinnedPlaylists(list).catch(() => {});
+  }
+};
+
+// Busca detalhes de qualquer playlist do Spotify por link ou ID
+export const fetchPlaylistByIdOrUrl = async (input) => {
+  const playlistId = extractPlaylistId(input);
+  if (!playlistId) throw new Error('Cole um link ou ID válido do Spotify (ex: https://open.spotify.com/playlist/...)');
+
+  const pl = await spotifyFetch(`/playlists/${playlistId}`);
+  return {
+    id: pl.id,
+    name: pl.name,
+    type: 'playlist',
+    description: pl.description || '',
+    image: pl.images?.[0]?.url || null,
+    totalTracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
+    uri: pl.uri,
+    owner: pl.owner?.display_name || 'Spotify',
+    isPinned: true,
+  };
+};
+
+// Busca ao vivo no catálogo de playlists do Spotify
+export const searchSpotifyPlaylists = async (query) => {
+  if (!query || !query.trim()) return [];
+  const trimmed = query.trim();
+  const data = await spotifyFetch(`/search?q=${encodeURIComponent(trimmed)}&type=playlist&limit=15`);
+  return (data?.playlists?.items || [])
+    .filter(Boolean)
+    .map((pl) => ({
+      id: pl.id,
+      name: pl.name,
+      type: 'playlist',
+      description: pl.description || '',
+      image: pl.images?.[0]?.url || null,
+      totalTracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
+      uri: pl.uri,
+      owner: pl.owner?.display_name || 'Spotify',
+    }));
+};
+
+// Busca todas as Playlists, Álbuns Salvos e Playlists Fixadas
 export const fetchUserLibrary = async () => {
-  const [playlistsRes, albumsRes] = await Promise.allSettled([
+  const [playlistsRes, albumsRes, pinnedList] = await Promise.allSettled([
     spotifyFetch('/me/playlists?limit=50'),
     spotifyFetch('/me/albums?limit=50'),
+    getPinnedPlaylists(),
   ]);
 
   const items = [];
+  const seenIds = new Set();
 
-  // Playlists
-  if (playlistsRes.status === 'fulfilled' && playlistsRes.value?.items) {
-    playlistsRes.value.items.forEach((pl) => {
-      items.push({
-        id: pl.id,
-        name: pl.name,
-        type: 'playlist',
-        description: pl.description || '',
-        image: pl.images?.[0]?.url || null,
-        totalTracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
-        uri: pl.uri,
-        owner: pl.owner?.display_name || 'Spotify',
-      });
+  // 1. Playlists fixadas / adicionadas manualmente pelo usuário
+  if (pinnedList.status === 'fulfilled' && Array.isArray(pinnedList.value)) {
+    pinnedList.value.forEach((p) => {
+      if (p && p.id && !seenIds.has(p.id)) {
+        seenIds.add(p.id);
+        items.push({ ...p, isPinned: true });
+      }
     });
   }
 
-  // Álbuns Salvos
+  // 2. Playlists da conta (/me/playlists)
+  if (playlistsRes.status === 'fulfilled' && playlistsRes.value?.items) {
+    playlistsRes.value.items.forEach((pl) => {
+      if (pl && pl.id && !seenIds.has(pl.id)) {
+        seenIds.add(pl.id);
+        items.push({
+          id: pl.id,
+          name: pl.name,
+          type: 'playlist',
+          description: pl.description || '',
+          image: pl.images?.[0]?.url || null,
+          totalTracks: typeof pl.tracks?.total === 'number' ? pl.tracks.total : null,
+          uri: pl.uri,
+          owner: pl.owner?.display_name || 'Spotify',
+        });
+      }
+    });
+  }
+
+  // 3. Álbuns Salvos (/me/albums)
   if (albumsRes.status === 'fulfilled' && albumsRes.value?.items) {
     albumsRes.value.items.forEach((item) => {
       const alb = item.album;
-      if (alb) {
+      if (alb && alb.id && !seenIds.has(alb.id)) {
+        seenIds.add(alb.id);
         items.push({
           id: alb.id,
           name: alb.name,
@@ -302,7 +392,6 @@ export const fetchItemTracks = async (item) => {
       return { tracks, isDirectPlayOnly: false };
     }
   } catch (err) {
-    // Se o Spotify retornar 403 (restrição de playlists públicas de terceiros), permite reprodução direta!
     if (err.status === 403) {
       return { tracks: [], isDirectPlayOnly: true };
     }
@@ -313,13 +402,8 @@ export const fetchItemTracks = async (item) => {
 
 // Inicia reprodução inteligente conectando ao dispositivo correto (PC / Ativo)
 export const startPlayback = async ({ contextUri, trackUri, offsetIndex = 0 }) => {
-  // 1. Busca dispositivos disponíveis
   const devices = await getAvailableDevices();
 
-  // 2. Seleciona o melhor dispositivo:
-  // - Prioridade 1: Dispositivo atualmente ativo
-  // - Prioridade 2: Computador / PC local (tipo 'Computer')
-  // - Prioridade 3: Primeiro dispositivo disponível
   let targetDevice = devices.find((d) => d.is_active);
   if (!targetDevice) {
     targetDevice = devices.find((d) => d.type === 'Computer');
@@ -332,16 +416,13 @@ export const startPlayback = async ({ contextUri, trackUri, offsetIndex = 0 }) =
     throw new Error('Nenhum dispositivo Spotify encontrado. Abra o app do Spotify no seu PC.');
   }
 
-  // 3. Se o dispositivo não estiver marcado como ativo, envia transferência para acordá-lo
   if (!targetDevice.is_active) {
     try {
       await transferPlaybackToDevice(targetDevice.id, false);
-      // Aguarda 250ms para o Spotify processar a ativação do dispositivo
       await new Promise((r) => setTimeout(r, 250));
     } catch (e) {}
   }
 
-  // 4. Monta o corpo da requisição de reprodução
   const body = {};
   if (contextUri) {
     body.context_uri = contextUri;
@@ -354,17 +435,14 @@ export const startPlayback = async ({ contextUri, trackUri, offsetIndex = 0 }) =
     body.uris = [trackUri];
   }
 
-  // 5. Executa a reprodução apontando diretamente para o device_id
   try {
     return await spotifyFetch(`/me/player/play?device_id=${targetDevice.id}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });
   } catch (err) {
-    // Se retornar 404 No Active Device, tenta acordar com play: true
     if (err.status === 404 || err.message?.includes('No active device')) {
       await transferPlaybackToDevice(targetDevice.id, true);
-      // Tenta novamente
       return await spotifyFetch(`/me/player/play?device_id=${targetDevice.id}`, {
         method: 'PUT',
         body: JSON.stringify(body),

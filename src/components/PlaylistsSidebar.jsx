@@ -13,6 +13,11 @@ import {
   Sparkles,
   RefreshCw,
   Monitor,
+  Plus,
+  Link,
+  Pin,
+  Trash2,
+  Globe,
 } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 import {
@@ -22,6 +27,10 @@ import {
   getStoredAuth,
   initSpotifyAuth,
   getAvailableDevices,
+  fetchPlaylistByIdOrUrl,
+  searchSpotifyPlaylists,
+  getPinnedPlaylists,
+  savePinnedPlaylists,
 } from '../services/spotifyWeb';
 
 export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
@@ -36,6 +45,15 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
   const [feedbackMsg, setFeedbackMsg] = useState('');
   const [userProfile, setUserProfile] = useState(null);
   const [activeDeviceName, setActiveDeviceName] = useState('');
+
+  // Adicionar por Link
+  const [showAddByLink, setShowAddByLink] = useState(false);
+  const [playlistLinkInput, setPlaylistLinkInput] = useState('');
+  const [isAddingLink, setIsAddingLink] = useState(false);
+
+  // Busca ao vivo no catálogo Spotify
+  const [liveSearchResults, setLiveSearchResults] = useState([]);
+  const [isSearchingLive, setIsSearchingLive] = useState(false);
 
   useEffect(() => {
     initSpotifyAuth().then((auth) => {
@@ -109,6 +127,65 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
     }
   };
 
+  // Adicionar Playlist por Link
+  const handleAddPlaylistByLink = async (e) => {
+    e.preventDefault();
+    if (!playlistLinkInput.trim()) return;
+
+    playClickSound();
+    setIsAddingLink(true);
+    try {
+      const playlist = await fetchPlaylistByIdOrUrl(playlistLinkInput.trim());
+      const currentPinned = await getPinnedPlaylists();
+      const updatedPinned = [playlist, ...currentPinned.filter((p) => p.id !== playlist.id)];
+      await savePinnedPlaylists(updatedPinned);
+
+      setPlaylistLinkInput('');
+      setShowAddByLink(false);
+      showFeedback(`Playlist adicionada: ${playlist.name}`);
+      await loadLibrary();
+    } catch (err) {
+      showFeedback(err.message || 'Não foi possível encontrar a playlist.');
+    } finally {
+      setIsAddingLink(false);
+    }
+  };
+
+  // Fixar / Desafixar playlist
+  const handlePinPlaylistItem = async (item, e) => {
+    if (e) e.stopPropagation();
+    playClickSound();
+    const currentPinned = await getPinnedPlaylists();
+    const isAlreadyPinned = currentPinned.some((p) => p.id === item.id);
+
+    let updatedPinned;
+    if (isAlreadyPinned) {
+      updatedPinned = currentPinned.filter((p) => p.id !== item.id);
+      showFeedback(`Removida das fixadas: ${item.name}`);
+    } else {
+      updatedPinned = [{ ...item, isPinned: true }, ...currentPinned];
+      showFeedback(`Fixada na sua biblioteca: ${item.name}`);
+    }
+
+    await savePinnedPlaylists(updatedPinned);
+    await loadLibrary();
+  };
+
+  // Busca ao vivo no catálogo do Spotify
+  const handleLiveSearch = async () => {
+    if (!searchFilter.trim()) return;
+    playClickSound();
+    setIsSearchingLive(true);
+    try {
+      const results = await searchSpotifyPlaylists(searchFilter.trim());
+      setLiveSearchResults(results);
+    } catch (err) {
+      showFeedback('Erro ao pesquisar no Spotify.');
+    } finally {
+      setIsSearchingLive(false);
+    }
+  };
+
   const showFeedback = (msg) => {
     setFeedbackMsg(msg);
     setTimeout(() => {
@@ -124,7 +201,7 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
     return `${mins}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Filtragem por busca e por tipo
+  // Filtragem local por busca e por tipo
   const filteredItems = libraryItems.filter((item) => {
     const matchesSearch =
       item.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
@@ -174,22 +251,42 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
           )}
         </div>
 
-        {/* Botão de Ocultar Aba Lateral (Mantém a Home) */}
+        {/* Botões de Ação no Topo */}
         <div className="flex items-center space-x-1.5 shrink-0">
           {!selectedItem && (
-            <button
-              onClick={() => {
-                playClickSound();
-                loadLibrary();
-              }}
-              title="Atualizar biblioteca"
-              disabled={loading}
-              className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface transition-colors cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
-            </button>
+            <>
+              {/* Botão de Adicionar Playlist por Link */}
+              <button
+                onClick={() => {
+                  playClickSound();
+                  setShowAddByLink((prev) => !prev);
+                }}
+                title={showAddByLink ? 'Fechar adição por link' : 'Adicionar playlist por link do Spotify'}
+                className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                  showAddByLink
+                    ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400'
+                    : 'text-text-secondary hover:text-white hover:bg-dark-surface border-dark-border/60'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Botão de Atualizar Biblioteca */}
+              <button
+                onClick={() => {
+                  playClickSound();
+                  loadLibrary();
+                }}
+                title="Atualizar biblioteca"
+                disabled={loading}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface border border-dark-border/60 transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+              </button>
+            </>
           )}
 
+          {/* Botão de Ocultar Aba Lateral (Mantém a Home) */}
           <button
             onClick={() => {
               playClickSound();
@@ -205,6 +302,38 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
           </button>
         </div>
       </div>
+
+      {/* Caixa Expansível de Adicionar Playlist por Link */}
+      {showAddByLink && !selectedItem && (
+        <form
+          onSubmit={handleAddPlaylistByLink}
+          className="my-2 p-2.5 rounded-xl bg-dark-card/90 border border-emerald-500/40 shadow-neon-sm space-y-2 animate-in fade-in slide-in-from-top-2 shrink-0"
+        >
+          <div className="flex items-center space-x-1.5 text-emerald-300 text-[11px] font-medium">
+            <Link className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Adicionar qualquer playlist por link do Spotify:</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <input
+              type="text"
+              placeholder="Cole o link (https://open.spotify.com/playlist/...)"
+              value={playlistLinkInput}
+              onChange={(e) => setPlaylistLinkInput(e.target.value)}
+              className="flex-1 bg-dark-surface/90 border border-dark-border rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-text-secondary/50 focus:outline-none focus:border-emerald-400"
+            />
+            <button
+              type="submit"
+              disabled={isAddingLink || !playlistLinkInput.trim()}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all cursor-pointer disabled:opacity-40 shrink-0"
+            >
+              {isAddingLink ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Salvar'}
+            </button>
+          </div>
+          <p className="text-[9px] text-text-secondary leading-tight">
+            Dica: No Spotify do seu PC, clique nos 3 pontinhos da playlist &rarr; <strong>Compartilhar &rarr; Copiar link</strong> e cole aqui!
+          </p>
+        </form>
+      )}
 
       {/* Toast Feedback */}
       {feedbackMsg && (
@@ -238,6 +367,11 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
                     <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                       {selectedItem.type === 'album' ? 'Álbum' : 'Playlist'}
                     </span>
+                    {selectedItem.isPinned && (
+                      <span className="px-1 py-0.2 rounded text-[8px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Fixada
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-semibold text-white text-xs truncate leading-snug mt-0.5">
                     {selectedItem.name}
@@ -381,8 +515,18 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
                 <span className="text-xs">Carregando sua biblioteca...</span>
               </div>
             ) : filteredItems.length === 0 ? (
-              <div className="text-center py-10 text-text-secondary text-xs">
-                {searchFilter ? 'Nenhum item encontrado para a busca.' : 'Nenhuma música ou playlist na biblioteca.'}
+              <div className="text-center py-8 text-text-secondary text-xs space-y-3">
+                <p>Nenhum item encontrado na biblioteca.</p>
+                {searchFilter && (
+                  <button
+                    onClick={handleLiveSearch}
+                    disabled={isSearchingLive}
+                    className="py-1.5 px-3 rounded-xl bg-dark-card border border-emerald-500/30 text-emerald-300 text-xs flex items-center space-x-1.5 mx-auto hover:bg-emerald-500/10 transition-all cursor-pointer"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{isSearchingLive ? 'Buscando...' : `Buscar "${searchFilter}" no Spotify`}</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-1.5">
@@ -420,6 +564,11 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
                           >
                             {item.type === 'album' ? 'Álbum' : 'Playlist'}
                           </span>
+                          {item.isPinned && (
+                            <span className="px-1 py-0.2 rounded text-[7px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              Fixada
+                            </span>
+                          )}
                         </div>
                         <h4 className="text-xs font-semibold text-white truncate group-hover:text-emerald-300 mt-0.5">
                           {item.name}
@@ -431,16 +580,90 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed }) {
                       </div>
                     </div>
 
-                    {/* Botão de Tocar Direto */}
-                    <button
-                      onClick={(e) => handlePlayEntireItem(item, e)}
-                      title={`Tocar ${item.name}`}
-                      className="p-2 rounded-lg text-text-secondary hover:text-white hover:bg-emerald-500/20 hover:border-emerald-500/40 border border-transparent transition-all shrink-0 cursor-pointer"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
-                    </button>
+                    {/* Botões de Ação na Linha */}
+                    <div className="flex items-center space-x-1 shrink-0">
+                      {item.isPinned && (
+                        <button
+                          onClick={(e) => handlePinPlaylistItem(item, e)}
+                          title="Remover das fixadas"
+                          className="p-1.5 rounded-lg text-text-secondary hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer opacity-70 group-hover:opacity-100"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => handlePlayEntireItem(item, e)}
+                        title={`Tocar ${item.name}`}
+                        className="p-2 rounded-lg text-text-secondary hover:text-white hover:bg-emerald-500/20 hover:border-emerald-500/40 border border-transparent transition-all shrink-0 cursor-pointer"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
+                      </button>
+                    </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* Seção de Busca ao Vivo no Spotify (quando o usuário filtra) */}
+            {searchFilter && liveSearchResults.length > 0 && (
+              <div className="pt-2 border-t border-dark-border/50 space-y-2">
+                <div className="flex items-center justify-between text-[11px] text-text-secondary">
+                  <span className="font-semibold text-white flex items-center space-x-1">
+                    <Globe className="w-3 h-3 text-emerald-400" />
+                    <span>Resultados no Spotify</span>
+                  </span>
+                  <span className="text-[10px]">{liveSearchResults.length} encontrados</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5">
+                  {liveSearchResults.map((pl) => (
+                    <div
+                      key={pl.id}
+                      onClick={() => handleSelectItem(pl)}
+                      className="group flex items-center justify-between p-2 rounded-xl bg-dark-card/40 hover:bg-emerald-500/10 border border-dark-border/40 hover:border-emerald-500/40 cursor-pointer transition-all"
+                    >
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
+                        {pl.image ? (
+                          <img
+                            src={pl.image}
+                            alt={pl.name}
+                            className="w-9 h-9 rounded-lg object-cover border border-dark-border shrink-0 shadow-sm"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-dark-surface border border-dark-border flex items-center justify-center shrink-0">
+                            <Music className="w-3.5 h-3.5 text-text-secondary" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-semibold text-white truncate group-hover:text-emerald-300">
+                            {pl.name}
+                          </h4>
+                          <p className="text-[10px] text-text-secondary truncate">
+                            {pl.owner}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          onClick={(e) => handlePinPlaylistItem(pl, e)}
+                          title="Fixar na sua biblioteca do Pomodoro"
+                          className="p-1.5 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30 transition-all cursor-pointer"
+                        >
+                          <Pin className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => handlePlayEntireItem(pl, e)}
+                          title={`Tocar ${pl.name}`}
+                          className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-emerald-500/20 transition-all cursor-pointer"
+                        >
+                          <Play className="w-3.5 h-3.5 fill-current text-emerald-400" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
