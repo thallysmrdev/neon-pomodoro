@@ -90,7 +90,7 @@ export default function SpotifyPlayer({
           {isConnected && (
             <button
               onClick={handleTogglePlaylistsClick}
-              title={isPlaylistsOpen ? 'Ocultar aba lateral de playlists' : 'Abrir playlists na aba lateral'}
+              title={isPlaylistsOpen ? 'Ocultar músicas da playlist' : 'Ver músicas da playlist atual'}
               className={`p-1.5 rounded-lg transition-all cursor-pointer mr-0.5 shadow-sm ${
                 isPlaylistsOpen
                   ? 'text-white bg-emerald-500/30 border border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.35)]'

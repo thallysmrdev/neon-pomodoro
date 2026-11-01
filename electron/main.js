@@ -490,17 +490,6 @@ ipcMain.handle('store:save-settings', (event, settingsData) => {
   return true;
 });
 
-const PINNED_FILE = path.join(userDataDir, 'pinned-playlists.json');
-
-ipcMain.handle('store:get-pinned-playlists', () => {
-  return readJsonFile(PINNED_FILE, []);
-});
-
-ipcMain.handle('store:save-pinned-playlists', (event, list) => {
-  writeJsonFile(PINNED_FILE, list);
-  return true;
-});
-
 app.whenReady().then(() => {
   log('app.whenReady resolved');
   createWindow();

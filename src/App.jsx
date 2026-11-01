@@ -469,6 +469,7 @@ export default function App() {
             <PlaylistsSidebar
               onClose={() => handleTogglePlaylists(false)}
               onTrackPlayed={() => {}}
+              currentMediaTitle={mediaState.title}
             />
           </aside>
         )}
