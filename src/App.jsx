@@ -298,7 +298,7 @@ export default function App() {
 
   // Se conectado ao Spotify, busca a capa oficial do álbum em alta resolução
   useEffect(() => {
-    if (isSpotifyConnected && mediaState.status === 'playing') {
+    if (isSpotifyConnected && (mediaState.status === 'playing' || mediaState.title)) {
       fetchCurrentPlayback()
         .then((data) => {
           if (data?.albumArt) {
@@ -444,6 +444,7 @@ export default function App() {
           opacity={settings.widgetOpacity}
           mediaState={mediaState}
           onMediaControl={handleMediaControl}
+          albumArt={webAlbumArt}
         />
       </div>
     );

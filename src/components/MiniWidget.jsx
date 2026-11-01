@@ -15,6 +15,7 @@ export default function MiniWidget({
   opacity = 95,
   mediaState,
   onMediaControl,
+  albumArt,
 }) {
   const isPlayingMusic = mediaState?.status === 'playing';
   const hasMusicTrack = Boolean(mediaState?.title);
@@ -143,17 +144,26 @@ export default function MiniWidget({
 
       {/* Dedicated Spotify Mini Player Bar */}
       <div className="w-full bg-dark-card/80 border border-neon-purple/20 hover:border-neon-purple/40 rounded-xl px-2 py-1 flex items-center justify-between no-drag transition-all shadow-inner">
-        {/* Music Title & Artist */}
-        <div className="flex items-center space-x-1.5 min-w-0 flex-1 mr-1.5">
-          {isPlayingMusic ? (
-            <div className="flex items-end space-x-0.5 shrink-0 h-2.5">
-              <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-2" />
-              <span className="w-0.5 bg-neon-glow rounded-full animate-pulse h-2.5" />
-              <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-1.5" />
-            </div>
-          ) : (
-            <Music2 className="w-3 h-3 text-neon-light/60 shrink-0" />
-          )}
+        {/* Cover Art / Icon + Music Title & Artist */}
+        <div className="flex items-center space-x-2 min-w-0 flex-1 mr-1.5">
+          {/* Capa da Música / Mini Equalizador */}
+          <div className="relative w-6 h-6 rounded-md bg-neon-violet/20 border border-neon-purple/30 flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+            {albumArt ? (
+              <img
+                src={albumArt}
+                alt={mediaState?.title || 'Capa'}
+                className="w-full h-full object-cover"
+              />
+            ) : isPlayingMusic ? (
+              <div className="flex items-end justify-center space-x-0.5 h-2.5">
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-2" />
+                <span className="w-0.5 bg-neon-glow rounded-full animate-pulse h-2.5" />
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-pulse h-1.5" />
+              </div>
+            ) : (
+              <Music2 className="w-3 h-3 text-neon-light/60 shrink-0" />
+            )}
+          </div>
 
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold text-white truncate leading-tight">

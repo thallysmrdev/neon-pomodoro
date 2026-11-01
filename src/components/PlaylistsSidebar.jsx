@@ -106,10 +106,23 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
     <div className="w-full h-full flex flex-col p-3.5 select-none text-white overflow-hidden">
       {/* Header da Aba Lateral */}
       <div className="flex items-center justify-between pb-3 border-b border-dark-border/60 shrink-0">
-        <div className="flex items-center space-x-2.5 min-w-0 flex-1 mr-2">
+        <div className="flex items-center space-x-2 min-w-0 flex-1 mr-2">
+          {/* Botão de Ocultar Aba Lateral na Esquerda (Sem texto, mantendo a home) */}
+          <button
+            onClick={() => {
+              playClickSound();
+              onClose();
+            }}
+            title="Ocultar lista de músicas"
+            className="p-1.5 rounded-lg text-emerald-400 hover:text-white hover:bg-emerald-500/20 border border-emerald-500/30 hover:border-emerald-400/50 transition-all cursor-pointer group shadow-sm shrink-0"
+          >
+            <PanelRightClose className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          </button>
+
           <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 shadow-[0_0_12px_rgba(16,185,129,0.25)]">
             <ListMusic className="w-4 h-4 text-emerald-400" />
           </div>
+
           <div className="min-w-0">
             <h2 className="text-xs font-bold uppercase tracking-wider text-white font-mono truncate">
               Músicas da Playlist
@@ -122,7 +135,7 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
           </div>
         </div>
 
-        {/* Botões de Ação */}
+        {/* Botão de Atualizar na Direita */}
         <div className="flex items-center space-x-1.5 shrink-0">
           <button
             onClick={() => {
@@ -134,21 +147,6 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
             className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface border border-dark-border/60 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
-          </button>
-
-          {/* Botão de Ocultar Aba Lateral (Mantém a Home) */}
-          <button
-            onClick={() => {
-              playClickSound();
-              onClose();
-            }}
-            className="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/90 border border-dark-border/60 hover:border-emerald-500/40 transition-all cursor-pointer group shadow-sm"
-            title="Ocultar aba lateral e manter apenas a home"
-          >
-            <span className="text-[11px] font-medium text-text-secondary group-hover:text-emerald-300">
-              Ocultar
-            </span>
-            <PanelRightClose className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
           </button>
         </div>
       </div>
