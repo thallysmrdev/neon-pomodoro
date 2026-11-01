@@ -13,8 +13,8 @@ namespace NativeBridge
 {
     class Program
     {
-        [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
@@ -27,9 +27,13 @@ namespace NativeBridge
 
         private delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
-        private const byte VK_MEDIA_NEXT_TRACK = 0xB0;
-        private const byte VK_MEDIA_PREV_TRACK = 0xB1;
-        private const byte VK_MEDIA_PLAY_PAUSE = 0xB3;
+        private const uint WM_APPCOMMAND = 0x0319;
+        private const int APPCOMMAND_MEDIA_NEXTTRACK = 11;
+        private const int APPCOMMAND_MEDIA_PREVTRACK = 12;
+        private const int APPCOMMAND_MEDIA_STOP = 13;
+        private const int APPCOMMAND_MEDIA_PLAY_PAUSE = 14;
+        private const int APPCOMMAND_MEDIA_PLAY = 46;
+        private const int APPCOMMAND_MEDIA_PAUSE = 47;
 
         private static GlobalSystemMediaTransportControlsSessionManager? _sessionManager;
         private static string _lastJson = "";
@@ -46,6 +50,7 @@ namespace NativeBridge
                 if (_sessionManager != null)
                 {
                     _sessionManager.CurrentSessionChanged += (s, e) => { EmitStatus(); };
+                    _sessionManager.SessionsChanged += (s, e) => { EmitStatus(); };
                 }
             }
             catch { }
@@ -77,7 +82,7 @@ namespace NativeBridge
             };
             inputThread.Start();
 
-            // Main loop: polls status and outputs updates
+            // Main loop: polls status and outputs updates specifically for Spotify
             while (true)
             {
                 EmitStatus();
@@ -85,43 +90,147 @@ namespace NativeBridge
             }
         }
 
+        private static bool IsSpotifySession(GlobalSystemMediaTransportControlsSession? s)
+        {
+            if (s == null) return false;
+            string id = s.SourceAppUserModelId ?? "";
+            return id.Contains("Spotify", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static GlobalSystemMediaTransportControlsSession? GetSpotifySession()
+        {
+            if (_sessionManager == null) return null;
+            try
+            {
+                var sessions = _sessionManager.GetSessions();
+                if (sessions != null && sessions.Count > 0)
+                {
+                    GlobalSystemMediaTransportControlsSession? pausedSpotify = null;
+                    foreach (var s in sessions)
+                    {
+                        if (IsSpotifySession(s))
+                        {
+                            var playback = s.GetPlaybackInfo();
+                            if (playback?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                            {
+                                return s;
+                            }
+                            pausedSpotify ??= s;
+                        }
+                    }
+
+                    if (pausedSpotify != null)
+                    {
+                        return pausedSpotify;
+                    }
+                }
+
+                var current = _sessionManager.GetCurrentSession();
+                if (current != null && IsSpotifySession(current))
+                {
+                    return current;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private static void SendCommandToSpotifyWindow(int appCommand)
+        {
+            try
+            {
+                var procs = Process.GetProcessesByName("spotify");
+                if (procs.Length == 0) return;
+
+                var pids = new HashSet<uint>();
+                foreach (var p in procs) pids.Add((uint)p.Id);
+
+                EnumWindows((hWnd, lParam) =>
+                {
+                    GetWindowThreadProcessId(hWnd, out uint pid);
+                    if (pids.Contains(pid))
+                    {
+                        var sb = new StringBuilder(512);
+                        GetWindowText(hWnd, sb, 512);
+                        string t = sb.ToString().Trim();
+
+                        if (!string.IsNullOrEmpty(t) && t != "AngleHiddenWindow" && t != "Default IME" && t != "MSCTFIME UI")
+                        {
+                            // Send APPCOMMAND explicitly and exclusively to Spotify's HWND
+                            SendMessage(hWnd, WM_APPCOMMAND, hWnd, (IntPtr)(appCommand << 16));
+                            return false; // Done
+                        }
+                    }
+                    return true;
+                }, IntPtr.Zero);
+            }
+            catch { }
+        }
+
         private static async void HandleCommand(string cmd)
         {
             try
             {
-                var session = _sessionManager?.GetCurrentSession();
+                var session = GetSpotifySession();
 
                 if (cmd == "play-pause" || cmd == "toggle")
                 {
                     if (session != null)
                     {
-                        try { await session.TryTogglePlayPauseAsync(); } catch { SendMediaKey(VK_MEDIA_PLAY_PAUSE); }
+                        try { await session.TryTogglePlayPauseAsync(); }
+                        catch { SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PLAY_PAUSE); }
                     }
                     else
                     {
-                        SendMediaKey(VK_MEDIA_PLAY_PAUSE);
+                        SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PLAY_PAUSE);
+                    }
+                }
+                else if (cmd == "play")
+                {
+                    if (session != null)
+                    {
+                        try { await session.TryPlayAsync(); }
+                        catch { SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PLAY); }
+                    }
+                    else
+                    {
+                        SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PLAY);
+                    }
+                }
+                else if (cmd == "pause")
+                {
+                    if (session != null)
+                    {
+                        try { await session.TryPauseAsync(); }
+                        catch { SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PAUSE); }
+                    }
+                    else
+                    {
+                        SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PAUSE);
                     }
                 }
                 else if (cmd == "next")
                 {
                     if (session != null)
                     {
-                        try { await session.TrySkipNextAsync(); } catch { SendMediaKey(VK_MEDIA_NEXT_TRACK); }
+                        try { await session.TrySkipNextAsync(); }
+                        catch { SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_NEXTTRACK); }
                     }
                     else
                     {
-                        SendMediaKey(VK_MEDIA_NEXT_TRACK);
+                        SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_NEXTTRACK);
                     }
                 }
                 else if (cmd == "prev")
                 {
                     if (session != null)
                     {
-                        try { await session.TrySkipPreviousAsync(); } catch { SendMediaKey(VK_MEDIA_PREV_TRACK); }
+                        try { await session.TrySkipPreviousAsync(); }
+                        catch { SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PREVTRACK); }
                     }
                     else
                     {
-                        SendMediaKey(VK_MEDIA_PREV_TRACK);
+                        SendCommandToSpotifyWindow(APPCOMMAND_MEDIA_PREVTRACK);
                     }
                 }
                 else if (cmd == "status")
@@ -129,17 +238,10 @@ namespace NativeBridge
                     EmitStatus(force: true);
                 }
 
-                // Immediately emit after command
                 Thread.Sleep(150);
                 EmitStatus();
             }
             catch { }
-        }
-
-        private static void SendMediaKey(byte vk)
-        {
-            keybd_event(vk, 0, 0, UIntPtr.Zero);
-            keybd_event(vk, 0, 2, UIntPtr.Zero); // KEYEVENTF_KEYUP = 2
         }
 
         private static void EmitStatus(bool force = false)
@@ -159,39 +261,30 @@ namespace NativeBridge
 
         private static async Task<Dictionary<string, object>> GetCurrentMediaPayload()
         {
-            // 1. Try Windows SMTC first
+            // 1. Try Windows SMTC for Spotify specifically (NEVER capture Chrome, Edge or YouTube)
             try
             {
-                if (_sessionManager != null)
+                var spotifySession = GetSpotifySession();
+                if (spotifySession != null)
                 {
-                    var session = _sessionManager.GetCurrentSession();
-                    if (session != null)
+                    var mediaProps = await spotifySession.TryGetMediaPropertiesAsync();
+                    var playbackInfo = spotifySession.GetPlaybackInfo();
+
+                    if (mediaProps != null && !string.IsNullOrWhiteSpace(mediaProps.Title))
                     {
-                        var mediaProps = await session.TryGetMediaPropertiesAsync();
-                        var playbackInfo = session.GetPlaybackInfo();
+                        string status = playbackInfo?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing
+                            ? "playing"
+                            : "paused";
 
-                        if (mediaProps != null && !string.IsNullOrWhiteSpace(mediaProps.Title))
+                        return new Dictionary<string, object>
                         {
-                            string status = playbackInfo?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing
-                                ? "playing"
-                                : "paused";
-
-                            string source = session.SourceAppUserModelId ?? "Media";
-                            if (source.Contains("Spotify", StringComparison.OrdinalIgnoreCase))
-                            {
-                                source = "Spotify";
-                            }
-
-                            return new Dictionary<string, object>
-                            {
-                                ["running"] = true,
-                                ["status"] = status,
-                                ["title"] = mediaProps.Title,
-                                ["artist"] = mediaProps.Artist ?? "",
-                                ["album"] = mediaProps.AlbumTitle ?? "",
-                                ["source"] = source
-                            };
-                        }
+                            ["running"] = true,
+                            ["status"] = status,
+                            ["title"] = mediaProps.Title,
+                            ["artist"] = mediaProps.Artist ?? "",
+                            ["album"] = mediaProps.AlbumTitle ?? "",
+                            ["source"] = "Spotify"
+                        };
                     }
                 }
             }

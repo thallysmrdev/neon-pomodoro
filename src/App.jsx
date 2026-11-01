@@ -8,7 +8,7 @@ import PlaylistsSidebar from './components/PlaylistsSidebar';
 import SplashScreen from './components/SplashScreen';
 import { loadSettings, saveSettings, initSettings } from './services/storage';
 import { playBellSound } from './services/sound';
-import { getStoredAuth, fetchCurrentPlayback, initSpotifyAuth, getValidToken } from './services/spotifyWeb';
+import { getStoredAuth, fetchCurrentPlayback, initSpotifyAuth, getValidToken, controlSpotifyWeb } from './services/spotifyWeb';
 
 function generateMinutesBadge(mins, mode) {
   try {
@@ -236,24 +236,56 @@ export default function App() {
     }
   }, []);
 
-  // Sincronização em tempo real com Spotify / Windows Media
+  // Sincronização em tempo real focada exclusivamente no Spotify
   useEffect(() => {
     if (window.electronAPI) {
       if (window.electronAPI.getMediaState) {
         window.electronAPI.getMediaState().then((state) => {
-          if (state) setMediaState(state);
+          if (state && (!state.source || state.source.toLowerCase().includes('spotify'))) {
+            setMediaState(state);
+          }
         });
       }
       if (window.electronAPI.onMediaUpdate) {
         const cleanup = window.electronAPI.onMediaUpdate((state) => {
-          if (state) setMediaState(state);
+          if (state && (!state.source || state.source.toLowerCase().includes('spotify'))) {
+            setMediaState(state);
+          }
         });
         return cleanup;
       }
     }
   }, []);
 
-  const handleMediaControl = (action) => {
+  const handleMediaControl = async (action) => {
+    // Se autenticado via Spotify Web API, controla diretamente pela API oficial do Spotify (sem conflito com navegadores/YouTube)
+    if (isSpotifyConnected) {
+      try {
+        await controlSpotifyWeb(action);
+        setTimeout(() => {
+          fetchCurrentPlayback()
+            .then((data) => {
+              if (data) {
+                setMediaState((prev) => ({
+                  ...prev,
+                  running: true,
+                  status: data.isPlaying ? 'playing' : 'paused',
+                  title: data.title || prev.title,
+                  artist: data.artist || prev.artist,
+                  album: data.album || prev.album,
+                  source: 'Spotify',
+                }));
+                if (data.albumArt) setWebAlbumArt(data.albumArt);
+              }
+            })
+            .catch(() => {});
+        }, 300);
+        return;
+      } catch (err) {
+        console.warn('Controle via Web API indisponível, usando bridge nativa direcionada:', err);
+      }
+    }
+
     if (window.electronAPI && window.electronAPI.controlMedia) {
       window.electronAPI.controlMedia(action);
     }

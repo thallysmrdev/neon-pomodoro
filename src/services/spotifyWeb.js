@@ -327,3 +327,53 @@ export const startPlayback = async ({ trackUri, contextUri, offsetIndex = 0 }) =
     throw err;
   }
 };
+
+export const pausePlaybackWeb = async () => {
+  return await spotifyFetch('/me/player/pause', { method: 'PUT' });
+};
+
+export const resumePlaybackWeb = async () => {
+  const devices = await getAvailableDevices();
+  let targetDevice = devices.find((d) => d.is_active) || devices.find((d) => d.type === 'Computer') || devices[0];
+  const deviceQuery = targetDevice ? `?device_id=${targetDevice.id}` : '';
+  return await spotifyFetch(`/me/player/play${deviceQuery}`, { method: 'PUT' });
+};
+
+export const nextTrackWeb = async () => {
+  return await spotifyFetch('/me/player/next', { method: 'POST' });
+};
+
+export const previousTrackWeb = async () => {
+  return await spotifyFetch('/me/player/previous', { method: 'POST' });
+};
+
+// Controla reprodução diretamente via Spotify Web API (exclusivo para o Spotify, nunca afeta YouTube ou outros apps)
+export const controlSpotifyWeb = async (action) => {
+  if (action === 'play-pause' || action === 'toggle') {
+    const current = await fetchCurrentPlayback();
+    if (current && current.isPlaying) {
+      await pausePlaybackWeb();
+      return { isPlaying: false };
+    } else {
+      try {
+        await resumePlaybackWeb();
+      } catch (err) {
+        await startPlayback({});
+      }
+      return { isPlaying: true };
+    }
+  } else if (action === 'play') {
+    await resumePlaybackWeb();
+    return { isPlaying: true };
+  } else if (action === 'pause') {
+    await pausePlaybackWeb();
+    return { isPlaying: false };
+  } else if (action === 'next') {
+    await nextTrackWeb();
+    return { action: 'next' };
+  } else if (action === 'prev') {
+    await previousTrackWeb();
+    return { action: 'prev' };
+  }
+};
+
