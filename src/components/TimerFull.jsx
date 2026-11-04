@@ -19,6 +19,8 @@ export default function TimerFull({
   isPlaylistsOpen,
   isConnected,
   albumArt,
+  spotifyVolume,
+  onVolumeChange,
   onTogglePlay,
   onReset,
   onSkip,
@@ -239,6 +241,8 @@ export default function TimerFull({
               isPlaylistsOpen={isPlaylistsOpen}
               isConnected={isConnected}
               albumArt={albumArt}
+              spotifyVolume={spotifyVolume}
+              onVolumeChange={onVolumeChange}
             />
           </div>
         )}

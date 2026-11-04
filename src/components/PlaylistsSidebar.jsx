@@ -11,6 +11,9 @@ import {
   RefreshCw,
   Monitor,
   Disc3,
+  Volume2,
+  Volume1,
+  VolumeX,
 } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 import {
@@ -21,7 +24,7 @@ import {
   getAvailableDevices,
 } from '../services/spotifyWeb';
 
-export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaTitle }) {
+export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaTitle, spotifyVolume, onVolumeChange }) {
   const [queueData, setQueueData] = useState({
     isPlaying: false,
     currentTrack: null,
@@ -290,15 +293,47 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
         )}
       </div>
 
-      {/* Rodapé com Dispositivo Conectado */}
+      {/* Rodapé com Dispositivo Conectado & Volume do Spotify */}
       <div className="pt-2 border-t border-dark-border/50 flex items-center justify-between text-[10px] text-text-secondary shrink-0">
         <span
-          className="flex items-center space-x-1.5 truncate max-w-[200px]"
+          className="flex items-center space-x-1.5 truncate max-w-[130px]"
           title={activeDeviceName ? `Dispositivo ativo: ${activeDeviceName}` : 'Spotify Connect'}
         >
           <Monitor className="w-3 h-3 text-emerald-400 shrink-0" />
-          <span className="truncate">{activeDeviceName || 'Spotify Connect Ativo'}</span>
+          <span className="truncate">{activeDeviceName || 'Spotify Connect'}</span>
         </span>
+
+        {/* Volume do Spotify no rodapé */}
+        {onVolumeChange && typeof spotifyVolume === 'number' && (
+          <div className="flex items-center space-x-1.5 bg-dark-card/75 border border-dark-border/60 px-2 py-0.5 rounded-lg">
+            <button
+              onClick={() => onVolumeChange(spotifyVolume === 0 ? 70 : 0)}
+              title={spotifyVolume === 0 ? 'Desmutar Spotify' : 'Mutar Spotify'}
+              className="text-text-secondary hover:text-white cursor-pointer"
+            >
+              {spotifyVolume === 0 ? (
+                <VolumeX className="w-3 h-3 text-rose-400" />
+              ) : spotifyVolume < 50 ? (
+                <Volume1 className="w-3 h-3 text-emerald-400" />
+              ) : (
+                <Volume2 className="w-3 h-3 text-emerald-400" />
+              )}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={spotifyVolume}
+              onChange={(e) => onVolumeChange(Number(e.target.value))}
+              className="w-16 h-1 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400"
+              title={`Ajustar volume do Spotify: ${spotifyVolume}%`}
+            />
+            <span className="font-mono text-emerald-400 text-[10px] w-6 text-right font-medium">
+              {spotifyVolume}%
+            </span>
+          </div>
+        )}
+
         <span>
           {queueData.tracks.length > 0 ? `${queueData.tracks.length} faixas` : 'Fila vazia'}
         </span>

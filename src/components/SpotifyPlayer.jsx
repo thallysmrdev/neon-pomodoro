@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music2, ListMusic, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Music2, ListMusic, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
 export default function SpotifyPlayer({
@@ -10,10 +10,16 @@ export default function SpotifyPlayer({
   isPlaylistsOpen = false,
   isConnected,
   albumArt,
+  spotifyVolume,
+  onVolumeChange,
 }) {
   const isPlaying = mediaState?.status === 'playing';
   const hasTrack = Boolean(mediaState?.title);
   const isRunning = Boolean(mediaState?.running);
+
+  const [isHoveringVolume, setIsHoveringVolume] = useState(false);
+  const [isAdjustingVolume, setIsAdjustingVolume] = useState(false);
+  const [lastNonZeroVolume, setLastNonZeroVolume] = useState(spotifyVolume || 70);
 
   const handlePrev = () => {
     playClickSound();
@@ -37,6 +43,29 @@ export default function SpotifyPlayer({
     } else if (onOpenPlaylists) {
       onOpenPlaylists();
     }
+  };
+
+  const handleToggleMute = (e) => {
+    e.stopPropagation();
+    playClickSound();
+    if (onVolumeChange) {
+      if (spotifyVolume > 0) {
+        setLastNonZeroVolume(spotifyVolume);
+        onVolumeChange(0);
+      } else {
+        onVolumeChange(lastNonZeroVolume || 70);
+      }
+    }
+  };
+
+  const renderVolumeIcon = () => {
+    if (spotifyVolume === 0) {
+      return <VolumeX className="w-3.5 h-3.5 text-rose-400" />;
+    }
+    if (spotifyVolume < 50) {
+      return <Volume1 className="w-3.5 h-3.5 text-emerald-400" />;
+    }
+    return <Volume2 className="w-3.5 h-3.5 text-emerald-400" />;
   };
 
   return (
@@ -131,6 +160,53 @@ export default function SpotifyPlayer({
           >
             <SkipForward className="w-3.5 h-3.5" />
           </button>
+
+          {/* Ajuste de Volume Exclusivo do Spotify (Não mexe no computador) */}
+          {onVolumeChange && (
+            <div
+              className="relative flex items-center group/vol ml-0.5"
+              onMouseEnter={() => setIsHoveringVolume(true)}
+              onMouseLeave={() => setIsHoveringVolume(false)}
+            >
+              {/* Slider Expansível Neon */}
+              <div
+                className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
+                  isHoveringVolume || isAdjustingVolume
+                    ? 'w-24 opacity-100 pr-1 pl-1'
+                    : 'w-0 opacity-0 pointer-events-none'
+                }`}
+              >
+                <div className="flex items-center space-x-1.5 w-full">
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={spotifyVolume ?? 70}
+                    onChange={(e) => {
+                      setIsAdjustingVolume(true);
+                      onVolumeChange(Number(e.target.value));
+                    }}
+                    onMouseUp={() => setIsAdjustingVolume(false)}
+                    onTouchEnd={() => setIsAdjustingVolume(false)}
+                    className="w-16 h-1.5 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none shadow-sm"
+                    title={`Volume do Spotify: ${spotifyVolume ?? 70}%`}
+                  />
+                  <span className="text-[10px] font-mono text-emerald-400 w-6 text-right select-none font-semibold">
+                    {spotifyVolume ?? 70}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Botão de Volume / Mutar com feedback visual */}
+              <button
+                onClick={handleToggleMute}
+                title={`Volume do Spotify: ${spotifyVolume ?? 70}% (${spotifyVolume === 0 ? 'Clique para desmutar' : 'Clique para mutar'})`}
+                className="p-1.5 rounded-lg text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer shrink-0"
+              >
+                {renderVolumeIcon()}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -209,10 +209,10 @@ export const fetchUserProfile = async () => {
   return auth.userProfile;
 };
 
-// Busca estado atual do player no Spotify (para pegar capa em alta resolução)
+// Busca estado atual do player no Spotify (para pegar capa em alta resolução, progresso e volume do Spotify)
 export const fetchCurrentPlayback = async () => {
   try {
-    const data = await spotifyFetch('/me/player/currently-playing');
+    const data = await spotifyFetch('/me/player');
     if (!data || !data.item) return null;
 
     return {
@@ -220,9 +220,12 @@ export const fetchCurrentPlayback = async () => {
       artist: data.item.artists?.map((a) => a.name).join(', ') || '',
       album: data.item.album?.name || '',
       albumArt: data.item.album?.images?.[0]?.url || null,
-      isPlaying: data.is_playing,
+      isPlaying: Boolean(data.is_playing),
       progressMs: data.progress_ms,
       durationMs: data.item.duration_ms,
+      uri: data.item.uri,
+      volumePercent: typeof data.device?.volume_percent === 'number' ? data.device.volume_percent : null,
+      device: data.device?.name || '',
     };
   } catch (err) {
     return null;
@@ -376,4 +379,33 @@ export const controlSpotifyWeb = async (action) => {
     return { action: 'prev' };
   }
 };
+
+// Ajusta o volume do Spotify (sem alterar o volume do Windows/computador)
+export const setSpotifyVolume = async (volumePercent) => {
+  const clamped = Math.max(0, Math.min(100, Math.round(volumePercent)));
+  try {
+    const devices = await getAvailableDevices().catch(() => []);
+    let targetDevice = devices.find((d) => d.is_active) || devices.find((d) => d.type === 'Computer') || devices[0];
+    const deviceQuery = targetDevice ? `?device_id=${targetDevice.id}&volume_percent=${clamped}` : `?volume_percent=${clamped}`;
+
+    await spotifyFetch(`/me/player/volume${deviceQuery}`, {
+      method: 'PUT',
+    });
+    return clamped;
+  } catch (err) {
+    console.warn('Erro ao ajustar volume do Spotify:', err);
+    throw err;
+  }
+};
+
+// Obtém o volume atual do player do Spotify
+export const getSpotifyVolume = async () => {
+  try {
+    const data = await spotifyFetch('/me/player');
+    return typeof data?.device?.volume_percent === 'number' ? data.device.volume_percent : null;
+  } catch (err) {
+    return null;
+  }
+};
+
 

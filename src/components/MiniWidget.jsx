@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, Flame, Coffee, Sparkles, Music2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, Flame, Coffee, Sparkles, Music2, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
 export default function MiniWidget({
@@ -16,10 +16,29 @@ export default function MiniWidget({
   mediaState,
   onMediaControl,
   albumArt,
+  spotifyVolume,
+  onVolumeChange,
 }) {
   const isPlayingMusic = mediaState?.status === 'playing';
   const hasMusicTrack = Boolean(mediaState?.title);
   const isMusicRunning = Boolean(mediaState?.running);
+
+  const [showMiniVol, setShowMiniVol] = useState(false);
+  const [isAdjustingMiniVol, setIsAdjustingMiniVol] = useState(false);
+  const [lastMiniVol, setLastMiniVol] = useState(spotifyVolume || 70);
+
+  const handleMiniToggleMute = (e) => {
+    e.stopPropagation();
+    playClickSound();
+    if (onVolumeChange) {
+      if (spotifyVolume > 0) {
+        setLastMiniVol(spotifyVolume);
+        onVolumeChange(0);
+      } else {
+        onVolumeChange(lastMiniVol || 70);
+      }
+    }
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -215,6 +234,57 @@ export default function MiniWidget({
           >
             <SkipForward className="w-2.5 h-2.5" />
           </button>
+
+          {/* Ajuste de Volume no Mini Widget */}
+          {onVolumeChange && (
+            <div
+              className="relative flex items-center group/minivol ml-0.5"
+              onMouseEnter={() => setShowMiniVol(true)}
+              onMouseLeave={() => setShowMiniVol(false)}
+            >
+              {/* Slider de Volume Expansível */}
+              <div
+                className={`flex items-center overflow-hidden transition-all duration-200 ease-out ${
+                  showMiniVol || isAdjustingMiniVol
+                    ? 'w-18 opacity-100 pr-1 pl-0.5'
+                    : 'w-0 opacity-0 pointer-events-none'
+                }`}
+              >
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={spotifyVolume ?? 70}
+                  onChange={(e) => {
+                    setIsAdjustingMiniVol(true);
+                    onVolumeChange(Number(e.target.value));
+                  }}
+                  onMouseUp={() => setIsAdjustingMiniVol(false)}
+                  onTouchEnd={() => setIsAdjustingMiniVol(false)}
+                  className="w-12 h-1 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none"
+                  title={`Volume do Spotify (${spotifyVolume ?? 70}%)`}
+                />
+                <span className="text-[8px] font-mono text-emerald-400 ml-1 select-none font-semibold">
+                  {spotifyVolume ?? 70}%
+                </span>
+              </div>
+
+              {/* Botão de volume / mute */}
+              <button
+                onClick={handleMiniToggleMute}
+                title={`Volume do Spotify: ${spotifyVolume ?? 70}%`}
+                className="p-1 rounded text-text-secondary hover:text-white hover:bg-dark-surface/80 transition-colors cursor-pointer shrink-0"
+              >
+                {spotifyVolume === 0 ? (
+                  <VolumeX className="w-2.5 h-2.5 text-rose-400" />
+                ) : spotifyVolume < 50 ? (
+                  <Volume1 className="w-2.5 h-2.5 text-emerald-400" />
+                ) : (
+                  <Volume2 className="w-2.5 h-2.5 text-emerald-400" />
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

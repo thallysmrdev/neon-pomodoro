@@ -8,7 +8,15 @@ import PlaylistsSidebar from './components/PlaylistsSidebar';
 import SplashScreen from './components/SplashScreen';
 import { loadSettings, saveSettings, initSettings } from './services/storage';
 import { playBellSound } from './services/sound';
-import { getStoredAuth, fetchCurrentPlayback, initSpotifyAuth, getValidToken, controlSpotifyWeb } from './services/spotifyWeb';
+import {
+  getStoredAuth,
+  fetchCurrentPlayback,
+  initSpotifyAuth,
+  getValidToken,
+  controlSpotifyWeb,
+  setSpotifyVolume as setSpotifyVolumeApi,
+  getSpotifyVolume,
+} from './services/spotifyWeb';
 
 function generateMinutesBadge(mins, mode) {
   try {
@@ -55,6 +63,9 @@ export default function App() {
   const [isPlaylistsOpen, setIsPlaylistsOpen] = useState(false);
   const [webAlbumArt, setWebAlbumArt] = useState(null);
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(() => Boolean(getStoredAuth().accessToken));
+  const [spotifyVolume, setSpotifyVolume] = useState(70);
+  const volumeDebounceRef = useRef(null);
+  const lastVolumeRef = useRef(70);
 
   // Estado da mídia / Spotify conectado
   const [mediaState, setMediaState] = useState({
@@ -105,9 +116,31 @@ export default function App() {
       if (auth?.clientId && (auth.refreshToken || auth.accessToken)) {
         // Renova ou valida o token de forma silenciosa e automática
         const validToken = await getValidToken();
-        setIsSpotifyConnected(Boolean(validToken));
+        const connected = Boolean(validToken);
+        setIsSpotifyConnected(connected);
+        if (connected) {
+          getSpotifyVolume()
+            .then((vol) => {
+              if (typeof vol === 'number') {
+                setSpotifyVolume(vol);
+                lastVolumeRef.current = vol;
+              }
+            })
+            .catch(() => {});
+        }
       } else {
-        setIsSpotifyConnected(Boolean(auth?.accessToken));
+        const connected = Boolean(auth?.accessToken);
+        setIsSpotifyConnected(connected);
+        if (connected) {
+          getSpotifyVolume()
+            .then((vol) => {
+              if (typeof vol === 'number') {
+                setSpotifyVolume(vol);
+                lastVolumeRef.current = vol;
+              }
+            })
+            .catch(() => {});
+        }
       }
     }
     init();
@@ -296,7 +329,7 @@ export default function App() {
     setIsSpotifyConnected(Boolean(getStoredAuth().accessToken));
   }, [isSettingsOpen]);
 
-  // Se conectado ao Spotify, busca a capa oficial do álbum em alta resolução
+  // Se conectado ao Spotify, busca a capa oficial do álbum em alta resolução e o volume atual do player
   useEffect(() => {
     if (isSpotifyConnected && (mediaState.status === 'playing' || mediaState.title)) {
       fetchCurrentPlayback()
@@ -304,10 +337,34 @@ export default function App() {
           if (data?.albumArt) {
             setWebAlbumArt(data.albumArt);
           }
+          if (typeof data?.volumePercent === 'number') {
+            setSpotifyVolume(data.volumePercent);
+            lastVolumeRef.current = data.volumePercent;
+          }
         })
         .catch(() => {});
     }
   }, [mediaState.title, mediaState.status, isSpotifyConnected]);
+
+  // Controle inteligente de volume exclusivo do Spotify (não afeta o computador)
+  const handleSpotifyVolumeChange = (newVolume) => {
+    const val = Math.max(0, Math.min(100, Math.round(newVolume)));
+    setSpotifyVolume(val); // Feedback instantâneo na UI
+
+    if (volumeDebounceRef.current) {
+      clearTimeout(volumeDebounceRef.current);
+    }
+
+    volumeDebounceRef.current = setTimeout(async () => {
+      if (isSpotifyConnected) {
+        try {
+          await setSpotifyVolumeApi(val);
+        } catch (err) {
+          console.warn('Falha ao definir volume no Spotify Web API:', err);
+        }
+      }
+    }, 120);
+  };
 
   // Alternar Play / Pause
   const handleTogglePlay = async () => {
@@ -445,6 +502,8 @@ export default function App() {
           mediaState={mediaState}
           onMediaControl={handleMediaControl}
           albumArt={webAlbumArt}
+          spotifyVolume={spotifyVolume}
+          onVolumeChange={handleSpotifyVolumeChange}
         />
       </div>
     );
@@ -489,6 +548,8 @@ export default function App() {
             onTogglePlaylists={handleTogglePlaylists}
             isConnected={isSpotifyConnected}
             albumArt={webAlbumArt}
+            spotifyVolume={spotifyVolume}
+            onVolumeChange={handleSpotifyVolumeChange}
             onTogglePlay={handleTogglePlay}
             onReset={handleReset}
             onSkip={handleSkip}
@@ -503,6 +564,8 @@ export default function App() {
               onClose={() => handleTogglePlaylists(false)}
               onTrackPlayed={() => {}}
               currentMediaTitle={mediaState.title}
+              spotifyVolume={spotifyVolume}
+              onVolumeChange={handleSpotifyVolumeChange}
             />
           </aside>
         )}
