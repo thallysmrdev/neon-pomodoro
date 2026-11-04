@@ -48,8 +48,8 @@ export default function MiniWidget({
   const updateMiniFromPointer = (e) => {
     if (!miniTrackRef.current || !onVolumeChange) return;
     const rect = miniTrackRef.current.getBoundingClientRect();
-    const clampedY = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
-    const percent = Math.round(((rect.bottom - clampedY) / rect.height) * 100);
+    const clampedX = Math.max(rect.left, Math.min(rect.right, e.clientX));
+    const percent = Math.round(((clampedX - rect.left) / rect.width) * 100);
     onVolumeChange(percent);
   };
 
@@ -268,23 +268,30 @@ export default function MiniWidget({
               onMouseEnter={handleMiniMouseEnter}
               onMouseLeave={handleMiniMouseLeave}
             >
-              {/* Card Flutuante Vertical */}
+              {/* Card Flutuante que sobe acima do player sem ser cortado pelo tamanho do widget */}
               <div
-                className={`absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 bg-dark-bg/95 border border-neon-purple/40 backdrop-blur-2xl shadow-[0_0_15px_rgba(0,0,0,0.9),0_0_10px_rgba(168,85,247,0.3)] rounded-xl p-1.5 flex flex-col items-center justify-between transition-all duration-200 ease-out select-none ${
+                className={`absolute bottom-full mb-1.5 right-0 z-50 bg-dark-bg/95 border border-neon-purple/40 backdrop-blur-2xl shadow-[0_0_15px_rgba(0,0,0,0.95),0_0_10px_rgba(168,85,247,0.3)] rounded-xl px-2.5 py-1.5 flex items-center space-x-2 transition-all duration-200 ease-out select-none ${
                   showMiniVol || isAdjustingMiniVol
                     ? 'opacity-100 pointer-events-auto translate-y-0 scale-100'
-                    : 'opacity-0 pointer-events-none translate-y-2 scale-95'
+                    : 'opacity-0 pointer-events-none translate-y-1 scale-95'
                 }`}
-                style={{ width: '36px', height: '92px' }}
+                style={{ width: '165px', height: '28px' }}
               >
-                {/* Ponte invisível para hover suave */}
+                {/* Ponte invisível para passagem suave do mouse */}
                 <div className="absolute top-full left-0 right-0 h-3 pointer-events-auto" />
 
-                <span className="text-[9px] font-mono text-emerald-400 font-bold select-none leading-none pt-0.5">
-                  {spotifyVolume ?? 70}%
+                {/* Ícone de Volume */}
+                <span className="shrink-0">
+                  {spotifyVolume === 0 ? (
+                    <VolumeX className="w-2.5 h-2.5 text-rose-400" />
+                  ) : spotifyVolume < 50 ? (
+                    <Volume1 className="w-2.5 h-2.5 text-emerald-400" />
+                  ) : (
+                    <Volume2 className="w-2.5 h-2.5 text-emerald-400" />
+                  )}
                 </span>
 
-                {/* Trilho Vertical Interativo */}
+                {/* Trilho Interativo com Barra Acompanhando a Movimentação */}
                 <div
                   ref={miniTrackRef}
                   onPointerDown={(e) => {
@@ -312,23 +319,28 @@ export default function MiniWidget({
                     const current = spotifyVolume ?? 70;
                     onVolumeChange(Math.max(0, Math.min(100, current + step)));
                   }}
-                  className="relative flex-1 w-full flex items-center justify-center my-1 cursor-pointer touch-none"
-                  title={`Volume do Spotify: ${spotifyVolume ?? 70}%`}
+                  className="relative flex-1 flex items-center h-3 cursor-pointer touch-none group/minibar"
+                  title={`Volume do Spotify: ${spotifyVolume ?? 70}% (Arraste ou role o scroll)`}
                 >
-                  <div className="relative w-1.5 h-full bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                  {/* Trilho Fundo */}
+                  <div className="absolute left-0 right-0 h-1 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                    {/* Barra Preenchida Dinâmica */}
                     <div
-                      className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)] rounded-full transition-all duration-75"
-                      style={{ height: `${spotifyVolume ?? 70}%` }}
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)] rounded-full transition-all duration-75"
+                      style={{ width: `${spotifyVolume ?? 70}%` }}
                     />
                   </div>
+
+                  {/* Thumb / Indicador que acompanha a barra */}
                   <div
-                    className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75"
-                    style={{ bottom: `${spotifyVolume ?? 70}%` }}
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75 group-hover/minibar:scale-125"
+                    style={{ left: `${spotifyVolume ?? 70}%` }}
                   />
                 </div>
 
-                <span className="text-[7px] font-mono text-text-secondary select-none font-semibold">
-                  VOL
+                {/* Porcentagem Atual */}
+                <span className="text-[9px] font-mono text-emerald-400 font-bold select-none w-6 text-right shrink-0">
+                  {spotifyVolume ?? 70}%
                 </span>
               </div>
 

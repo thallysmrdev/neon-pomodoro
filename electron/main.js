@@ -172,7 +172,7 @@ ipcMain.on('window:minimize', (event, options = {}) => {
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
 
   const miniWidth = 296;
-  const miniHeight = 128;
+  const miniHeight = 136;
   const x = screenWidth - miniWidth - 24;
   const y = screenHeight - miniHeight - 16;
 
@@ -211,7 +211,7 @@ ipcMain.handle('window:set-mini-mode', (event, mini) => {
     const { width: screenWidth, height: screenHeight } = primaryDisplay.workArea;
 
     const miniWidth = 296;
-    const miniHeight = 128;
+    const miniHeight = 136;
     const x = screenWidth - miniWidth - 24;
     const y = screenHeight - miniHeight - 16;
 
