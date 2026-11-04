@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, Flame, Coffee, Sparkles, Music2, Volume2, Volume1, VolumeX } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, X, Flame, Coffee, Sparkles, Music2, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
 export default function MiniWidget({
@@ -144,6 +144,20 @@ export default function MiniWidget({
             className="p-1 rounded-md text-text-secondary hover:text-white hover:bg-dark-surface transition-colors cursor-pointer"
           >
             <Maximize2 className="w-3 h-3" />
+          </button>
+
+          {/* Fechar aplicativo */}
+          <button
+            onClick={() => {
+              playClickSound();
+              if (window.electronAPI) {
+                window.electronAPI.closeWindow();
+              }
+            }}
+            title="Fechar aplicativo"
+            className="p-1 rounded-md text-text-secondary hover:text-rose-400 hover:bg-rose-500/20 transition-colors cursor-pointer"
+          >
+            <X className="w-3 h-3" />
           </button>
         </div>
       </div>
