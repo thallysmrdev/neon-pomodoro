@@ -319,11 +319,8 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
                 <Volume2 className="w-3 h-3 text-emerald-400" />
               )}
             </button>
-            {/* Marcador Mínimo */}
-            <span className="text-[8px] font-mono text-text-secondary/70 select-none font-semibold">0</span>
-
             {/* Trilho Interativo com Barra Acompanhando a Movimentação */}
-            <div className="relative w-16 flex items-center h-3.5 cursor-pointer group/bar">
+            <div className="relative w-20 flex items-center h-3.5 cursor-pointer group/bar">
               {/* Trilho Fundo */}
               <div className="absolute left-0 right-0 h-1 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
                 {/* Barra Preenchida Dinâmica que acompanha o volume */}
@@ -332,18 +329,6 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
                   style={{ width: `${spotifyVolume}%` }}
                 />
               </div>
-
-              {/* Marcador Físico de Mínimo */}
-              <div
-                className="absolute left-0 w-0.5 h-2 bg-text-secondary/60 rounded-full pointer-events-none"
-                title="Mínimo (0%)"
-              />
-
-              {/* Marcador Físico de Máximo */}
-              <div
-                className="absolute right-0 w-0.5 h-2 bg-text-secondary/60 rounded-full pointer-events-none"
-                title="Máximo (100%)"
-              />
 
               {/* Thumb / Indicador que acompanha a barra */}
               <div
@@ -359,12 +344,10 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
                 value={spotifyVolume}
                 onChange={(e) => onVolumeChange(Number(e.target.value))}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                title={`Ajustar volume do Spotify: ${spotifyVolume}% (Mínimo: 0% | Máximo: 100%)`}
+                title={`Ajustar volume do Spotify: ${spotifyVolume}%`}
               />
             </div>
 
-            {/* Marcador Máximo */}
-            <span className="text-[8px] font-mono text-text-secondary/70 select-none font-semibold">100</span>
             <span className="font-mono text-emerald-400 text-[10px] w-6 text-right font-medium">
               {spotifyVolume}%
             </span>

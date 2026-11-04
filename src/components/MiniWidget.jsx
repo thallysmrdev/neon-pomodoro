@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Pause, SkipForward, SkipBack, Maximize2, Minus, Flame, Coffee, Sparkles, Music2, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
@@ -26,6 +26,32 @@ export default function MiniWidget({
   const [showMiniVol, setShowMiniVol] = useState(false);
   const [isAdjustingMiniVol, setIsAdjustingMiniVol] = useState(false);
   const [lastMiniVol, setLastMiniVol] = useState(spotifyVolume || 70);
+
+  const miniTrackRef = useRef(null);
+  const miniLeaveTimeoutRef = useRef(null);
+
+  const handleMiniMouseEnter = () => {
+    if (miniLeaveTimeoutRef.current) {
+      clearTimeout(miniLeaveTimeoutRef.current);
+      miniLeaveTimeoutRef.current = null;
+    }
+    setShowMiniVol(true);
+  };
+
+  const handleMiniMouseLeave = () => {
+    if (isAdjustingMiniVol) return;
+    miniLeaveTimeoutRef.current = setTimeout(() => {
+      setShowMiniVol(false);
+    }, 220);
+  };
+
+  const updateMiniFromPointer = (e) => {
+    if (!miniTrackRef.current || !onVolumeChange) return;
+    const rect = miniTrackRef.current.getBoundingClientRect();
+    const clampedY = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
+    const percent = Math.round(((rect.bottom - clampedY) / rect.height) * 100);
+    onVolumeChange(percent);
+  };
 
   const handleMiniToggleMute = (e) => {
     e.stopPropagation();
@@ -235,55 +261,74 @@ export default function MiniWidget({
             <SkipForward className="w-2.5 h-2.5" />
           </button>
 
-          {/* Ajuste de Volume no Mini Widget */}
+          {/* Ajuste de Volume no Mini Widget (Sobe na vertical sobrepondo o que estiver acima) */}
           {onVolumeChange && (
             <div
               className="relative flex items-center group/minivol ml-0.5"
-              onMouseEnter={() => setShowMiniVol(true)}
-              onMouseLeave={() => setShowMiniVol(false)}
+              onMouseEnter={handleMiniMouseEnter}
+              onMouseLeave={handleMiniMouseLeave}
             >
-              {/* Slider de Volume Expansível com Preenchimento e Marcadores Min/Max */}
+              {/* Card Flutuante Vertical */}
               <div
-                className={`flex items-center overflow-hidden transition-all duration-200 ease-out ${
+                className={`absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 bg-dark-bg/95 border border-neon-purple/40 backdrop-blur-2xl shadow-[0_0_15px_rgba(0,0,0,0.9),0_0_10px_rgba(168,85,247,0.3)] rounded-xl p-1.5 flex flex-col items-center justify-between transition-all duration-200 ease-out select-none ${
                   showMiniVol || isAdjustingMiniVol
-                    ? 'w-24 opacity-100 pr-1 pl-0.5'
-                    : 'w-0 opacity-0 pointer-events-none'
+                    ? 'opacity-100 pointer-events-auto translate-y-0 scale-100'
+                    : 'opacity-0 pointer-events-none translate-y-2 scale-95'
                 }`}
+                style={{ width: '36px', height: '92px' }}
               >
-                <span className="text-[7px] font-mono text-text-secondary/70 select-none mr-1 font-semibold">0</span>
-                <div className="relative w-11 flex items-center h-3 cursor-pointer group/minibar">
-                  <div className="absolute left-0 right-0 h-1 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                {/* Ponte invisível para hover suave */}
+                <div className="absolute top-full left-0 right-0 h-3 pointer-events-auto" />
+
+                <span className="text-[9px] font-mono text-emerald-400 font-bold select-none leading-none pt-0.5">
+                  {spotifyVolume ?? 70}%
+                </span>
+
+                {/* Trilho Vertical Interativo */}
+                <div
+                  ref={miniTrackRef}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setIsAdjustingMiniVol(true);
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    updateMiniFromPointer(e);
+                  }}
+                  onPointerMove={(e) => {
+                    if (isAdjustingMiniVol || e.buttons === 1) {
+                      updateMiniFromPointer(e);
+                    }
+                  }}
+                  onPointerUp={(e) => {
+                    setIsAdjustingMiniVol(false);
+                    try {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                    } catch (err) {}
+                  }}
+                  onWheel={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!onVolumeChange) return;
+                    const step = e.deltaY < 0 ? 5 : -5;
+                    const current = spotifyVolume ?? 70;
+                    onVolumeChange(Math.max(0, Math.min(100, current + step)));
+                  }}
+                  className="relative flex-1 w-full flex items-center justify-center my-1 cursor-pointer touch-none"
+                  title={`Volume do Spotify: ${spotifyVolume ?? 70}%`}
+                >
+                  <div className="relative w-1.5 h-full bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
                     <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)] rounded-full transition-all duration-75"
-                      style={{ width: `${spotifyVolume ?? 70}%` }}
+                      className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)] rounded-full transition-all duration-75"
+                      style={{ height: `${spotifyVolume ?? 70}%` }}
                     />
                   </div>
-                  {/* Marcadores físicos de min e max */}
-                  <div className="absolute left-0 w-0.5 h-1.5 bg-text-secondary/60 rounded-full pointer-events-none" />
-                  <div className="absolute right-0 w-0.5 h-1.5 bg-text-secondary/60 rounded-full pointer-events-none" />
-                  {/* Thumb */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75"
-                    style={{ left: `${spotifyVolume ?? 70}%` }}
-                  />
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={spotifyVolume ?? 70}
-                    onChange={(e) => {
-                      setIsAdjustingMiniVol(true);
-                      onVolumeChange(Number(e.target.value));
-                    }}
-                    onMouseUp={() => setIsAdjustingMiniVol(false)}
-                    onTouchEnd={() => setIsAdjustingMiniVol(false)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    title={`Volume do Spotify (${spotifyVolume ?? 70}%)`}
+                    className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75"
+                    style={{ bottom: `${spotifyVolume ?? 70}%` }}
                   />
                 </div>
-                <span className="text-[7px] font-mono text-text-secondary/70 select-none ml-1 font-semibold">100</span>
-                <span className="text-[8px] font-mono text-emerald-400 ml-1 select-none font-semibold w-5 text-right">
-                  {spotifyVolume ?? 70}%
+
+                <span className="text-[7px] font-mono text-text-secondary select-none font-semibold">
+                  VOL
                 </span>
               </div>
 

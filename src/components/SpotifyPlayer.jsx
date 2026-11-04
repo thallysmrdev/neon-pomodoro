@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music2, ListMusic, Volume2, Volume1, VolumeX } from 'lucide-react';
 import { playClickSound } from '../services/sound';
 
@@ -20,6 +20,61 @@ export default function SpotifyPlayer({
   const [isHoveringVolume, setIsHoveringVolume] = useState(false);
   const [isAdjustingVolume, setIsAdjustingVolume] = useState(false);
   const [lastNonZeroVolume, setLastNonZeroVolume] = useState(spotifyVolume || 70);
+
+  const trackRef = useRef(null);
+  const leaveTimeoutRef = useRef(null);
+
+  const handleMouseEnterVolume = () => {
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    setIsHoveringVolume(true);
+  };
+
+  const handleMouseLeaveVolume = () => {
+    if (isAdjustingVolume) return;
+    leaveTimeoutRef.current = setTimeout(() => {
+      setIsHoveringVolume(false);
+    }, 220);
+  };
+
+  const updateVolumeFromPointer = (e) => {
+    if (!trackRef.current || !onVolumeChange) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const clampedY = Math.max(rect.top, Math.min(rect.bottom, e.clientY));
+    const percent = Math.round(((rect.bottom - clampedY) / rect.height) * 100);
+    onVolumeChange(percent);
+  };
+
+  const handlePointerDown = (e) => {
+    e.stopPropagation();
+    setIsAdjustingVolume(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    updateVolumeFromPointer(e);
+  };
+
+  const handlePointerMove = (e) => {
+    if (isAdjustingVolume || e.buttons === 1) {
+      updateVolumeFromPointer(e);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    setIsAdjustingVolume(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+  };
+
+  const handleWheelVolume = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onVolumeChange) return;
+    const step = e.deltaY < 0 ? 5 : -5;
+    const current = spotifyVolume ?? 70;
+    onVolumeChange(Math.max(0, Math.min(100, current + step)));
+  };
 
   const handlePrev = () => {
     playClickSound();
@@ -161,83 +216,60 @@ export default function SpotifyPlayer({
             <SkipForward className="w-3.5 h-3.5" />
           </button>
 
-          {/* Ajuste de Volume Exclusivo do Spotify (Não mexe no computador) */}
+          {/* Ajuste de Volume Exclusivo do Spotify (Flutua para cima sobrepondo o que estiver acima) */}
           {onVolumeChange && (
             <div
               className="relative flex items-center group/vol ml-0.5"
-              onMouseEnter={() => setIsHoveringVolume(true)}
-              onMouseLeave={() => setIsHoveringVolume(false)}
+              onMouseEnter={handleMouseEnterVolume}
+              onMouseLeave={handleMouseLeaveVolume}
             >
-              {/* Slider Expansível com Barra de Progresso e Marcadores Min/Max */}
+              {/* Card Flutuante Vertical que sobe acima do player */}
               <div
-                className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
+                className={`absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 z-50 bg-dark-bg/95 border border-neon-purple/40 backdrop-blur-2xl shadow-[0_0_20px_rgba(0,0,0,0.85),0_0_12px_rgba(168,85,247,0.25)] rounded-2xl p-2.5 flex flex-col items-center justify-between transition-all duration-200 ease-out select-none ${
                   isHoveringVolume || isAdjustingVolume
-                    ? 'w-40 opacity-100 pr-1 pl-1'
-                    : 'w-0 opacity-0 pointer-events-none'
+                    ? 'opacity-100 pointer-events-auto translate-y-0 scale-100'
+                    : 'opacity-0 pointer-events-none translate-y-2 scale-95'
                 }`}
+                style={{ width: '42px', height: '142px' }}
               >
-                <div className="flex items-center space-x-1.5 w-full">
-                  {/* Marcador Mínimo (0) */}
-                  <span className="text-[9px] font-mono text-text-secondary/70 select-none font-semibold">
-                    0
-                  </span>
+                {/* Ponte invisível para passagem suave do cursor do mouse */}
+                <div className="absolute top-full left-0 right-0 h-3 pointer-events-auto" />
 
-                  {/* Trilho Interativo com Barra Acompanhando a Movimentação */}
-                  <div className="relative flex-1 flex items-center h-4 cursor-pointer group/bar">
-                    {/* Trilho Fundo */}
-                    <div className="absolute left-0 right-0 h-1.5 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
-                      {/* Barra Preenchida Dinâmica que acompanha o volume */}
-                      <div
-                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)] rounded-full transition-all duration-75"
-                        style={{ width: `${spotifyVolume ?? 70}%` }}
-                      />
-                    </div>
+                {/* Porcentagem Atual no Topo */}
+                <span className="text-[10px] font-mono text-emerald-400 font-bold select-none leading-none pt-0.5">
+                  {spotifyVolume ?? 70}%
+                </span>
 
-                    {/* Marcador Físico de Mínimo na Barra */}
+                {/* Trilho Vertical Interativo */}
+                <div
+                  ref={trackRef}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onWheel={handleWheelVolume}
+                  className="relative flex-1 w-full flex items-center justify-center my-1.5 cursor-pointer touch-none"
+                  title={`Volume do Spotify: ${spotifyVolume ?? 70}% (Role o scroll ou arraste)`}
+                >
+                  {/* Trilho Fundo */}
+                  <div className="relative w-1.5 h-full bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                    {/* Barra Preenchida que sobe verticalmente */}
                     <div
-                      className="absolute left-0 w-0.5 h-2.5 bg-text-secondary/60 rounded-full pointer-events-none"
-                      title="Mínimo (0%)"
-                    />
-
-                    {/* Marcador Físico de Máximo na Barra */}
-                    <div
-                      className="absolute right-0 w-0.5 h-2.5 bg-text-secondary/60 rounded-full pointer-events-none"
-                      title="Máximo (100%)"
-                    />
-
-                    {/* Indicador / Thumb que acompanha a barra */}
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white border-2 border-emerald-400 shadow-[0_0_8px_#34d399] pointer-events-none transition-all duration-75 group-hover/bar:scale-125"
-                      style={{ left: `${spotifyVolume ?? 70}%` }}
-                    />
-
-                    {/* Input Nativo Invisível para Arrasto e Cliques */}
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={spotifyVolume ?? 70}
-                      onChange={(e) => {
-                        setIsAdjustingVolume(true);
-                        onVolumeChange(Number(e.target.value));
-                      }}
-                      onMouseUp={() => setIsAdjustingVolume(false)}
-                      onTouchEnd={() => setIsAdjustingVolume(false)}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                      title={`Volume do Spotify: ${spotifyVolume ?? 70}% (Mínimo: 0% | Máximo: 100%)`}
+                      className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)] rounded-full transition-all duration-75"
+                      style={{ height: `${spotifyVolume ?? 70}%` }}
                     />
                   </div>
 
-                  {/* Marcador Máximo (100) */}
-                  <span className="text-[9px] font-mono text-text-secondary/70 select-none font-semibold">
-                    100
-                  </span>
-
-                  {/* Valor Atual */}
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold w-6 text-right select-none">
-                    {spotifyVolume ?? 70}%
-                  </span>
+                  {/* Thumb / Indicador que acompanha a altura da barra */}
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-emerald-400 shadow-[0_0_8px_#34d399] pointer-events-none transition-all duration-75"
+                    style={{ bottom: `${spotifyVolume ?? 70}%` }}
+                  />
                 </div>
+
+                {/* Rótulo inferior discreto */}
+                <span className="text-[8px] font-mono text-text-secondary select-none font-semibold">
+                  VOL
+                </span>
               </div>
 
               {/* Botão de Volume / Mutar com feedback visual */}
