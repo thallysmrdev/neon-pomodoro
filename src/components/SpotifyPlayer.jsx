@@ -168,30 +168,73 @@ export default function SpotifyPlayer({
               onMouseEnter={() => setIsHoveringVolume(true)}
               onMouseLeave={() => setIsHoveringVolume(false)}
             >
-              {/* Slider Expansível Neon */}
+              {/* Slider Expansível com Barra de Progresso e Marcadores Min/Max */}
               <div
                 className={`flex items-center overflow-hidden transition-all duration-300 ease-out ${
                   isHoveringVolume || isAdjustingVolume
-                    ? 'w-24 opacity-100 pr-1 pl-1'
+                    ? 'w-40 opacity-100 pr-1 pl-1'
                     : 'w-0 opacity-0 pointer-events-none'
                 }`}
               >
                 <div className="flex items-center space-x-1.5 w-full">
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={spotifyVolume ?? 70}
-                    onChange={(e) => {
-                      setIsAdjustingVolume(true);
-                      onVolumeChange(Number(e.target.value));
-                    }}
-                    onMouseUp={() => setIsAdjustingVolume(false)}
-                    onTouchEnd={() => setIsAdjustingVolume(false)}
-                    className="w-16 h-1.5 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none shadow-sm"
-                    title={`Volume do Spotify: ${spotifyVolume ?? 70}%`}
-                  />
-                  <span className="text-[10px] font-mono text-emerald-400 w-6 text-right select-none font-semibold">
+                  {/* Marcador Mínimo (0) */}
+                  <span className="text-[9px] font-mono text-text-secondary/70 select-none font-semibold">
+                    0
+                  </span>
+
+                  {/* Trilho Interativo com Barra Acompanhando a Movimentação */}
+                  <div className="relative flex-1 flex items-center h-4 cursor-pointer group/bar">
+                    {/* Trilho Fundo */}
+                    <div className="absolute left-0 right-0 h-1.5 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                      {/* Barra Preenchida Dinâmica que acompanha o volume */}
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)] rounded-full transition-all duration-75"
+                        style={{ width: `${spotifyVolume ?? 70}%` }}
+                      />
+                    </div>
+
+                    {/* Marcador Físico de Mínimo na Barra */}
+                    <div
+                      className="absolute left-0 w-0.5 h-2.5 bg-text-secondary/60 rounded-full pointer-events-none"
+                      title="Mínimo (0%)"
+                    />
+
+                    {/* Marcador Físico de Máximo na Barra */}
+                    <div
+                      className="absolute right-0 w-0.5 h-2.5 bg-text-secondary/60 rounded-full pointer-events-none"
+                      title="Máximo (100%)"
+                    />
+
+                    {/* Indicador / Thumb que acompanha a barra */}
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-white border-2 border-emerald-400 shadow-[0_0_8px_#34d399] pointer-events-none transition-all duration-75 group-hover/bar:scale-125"
+                      style={{ left: `${spotifyVolume ?? 70}%` }}
+                    />
+
+                    {/* Input Nativo Invisível para Arrasto e Cliques */}
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={spotifyVolume ?? 70}
+                      onChange={(e) => {
+                        setIsAdjustingVolume(true);
+                        onVolumeChange(Number(e.target.value));
+                      }}
+                      onMouseUp={() => setIsAdjustingVolume(false)}
+                      onTouchEnd={() => setIsAdjustingVolume(false)}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      title={`Volume do Spotify: ${spotifyVolume ?? 70}% (Mínimo: 0% | Máximo: 100%)`}
+                    />
+                  </div>
+
+                  {/* Marcador Máximo (100) */}
+                  <span className="text-[9px] font-mono text-text-secondary/70 select-none font-semibold">
+                    100
+                  </span>
+
+                  {/* Valor Atual */}
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold w-6 text-right select-none">
                     {spotifyVolume ?? 70}%
                   </span>
                 </div>

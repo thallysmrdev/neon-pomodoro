@@ -242,29 +242,47 @@ export default function MiniWidget({
               onMouseEnter={() => setShowMiniVol(true)}
               onMouseLeave={() => setShowMiniVol(false)}
             >
-              {/* Slider de Volume Expansível */}
+              {/* Slider de Volume Expansível com Preenchimento e Marcadores Min/Max */}
               <div
                 className={`flex items-center overflow-hidden transition-all duration-200 ease-out ${
                   showMiniVol || isAdjustingMiniVol
-                    ? 'w-18 opacity-100 pr-1 pl-0.5'
+                    ? 'w-24 opacity-100 pr-1 pl-0.5'
                     : 'w-0 opacity-0 pointer-events-none'
                 }`}
               >
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={spotifyVolume ?? 70}
-                  onChange={(e) => {
-                    setIsAdjustingMiniVol(true);
-                    onVolumeChange(Number(e.target.value));
-                  }}
-                  onMouseUp={() => setIsAdjustingMiniVol(false)}
-                  onTouchEnd={() => setIsAdjustingMiniVol(false)}
-                  className="w-12 h-1 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none"
-                  title={`Volume do Spotify (${spotifyVolume ?? 70}%)`}
-                />
-                <span className="text-[8px] font-mono text-emerald-400 ml-1 select-none font-semibold">
+                <span className="text-[7px] font-mono text-text-secondary/70 select-none mr-1 font-semibold">0</span>
+                <div className="relative w-11 flex items-center h-3 cursor-pointer group/minibar">
+                  <div className="absolute left-0 right-0 h-1 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)] rounded-full transition-all duration-75"
+                      style={{ width: `${spotifyVolume ?? 70}%` }}
+                    />
+                  </div>
+                  {/* Marcadores físicos de min e max */}
+                  <div className="absolute left-0 w-0.5 h-1.5 bg-text-secondary/60 rounded-full pointer-events-none" />
+                  <div className="absolute right-0 w-0.5 h-1.5 bg-text-secondary/60 rounded-full pointer-events-none" />
+                  {/* Thumb */}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75"
+                    style={{ left: `${spotifyVolume ?? 70}%` }}
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={spotifyVolume ?? 70}
+                    onChange={(e) => {
+                      setIsAdjustingMiniVol(true);
+                      onVolumeChange(Number(e.target.value));
+                    }}
+                    onMouseUp={() => setIsAdjustingMiniVol(false)}
+                    onTouchEnd={() => setIsAdjustingMiniVol(false)}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    title={`Volume do Spotify (${spotifyVolume ?? 70}%)`}
+                  />
+                </div>
+                <span className="text-[7px] font-mono text-text-secondary/70 select-none ml-1 font-semibold">100</span>
+                <span className="text-[8px] font-mono text-emerald-400 ml-1 select-none font-semibold w-5 text-right">
                   {spotifyVolume ?? 70}%
                 </span>
               </div>

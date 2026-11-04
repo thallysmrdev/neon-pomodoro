@@ -319,15 +319,52 @@ export default function PlaylistsSidebar({ onClose, onTrackPlayed, currentMediaT
                 <Volume2 className="w-3 h-3 text-emerald-400" />
               )}
             </button>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={spotifyVolume}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              className="w-16 h-1 bg-dark-surface rounded-lg appearance-none cursor-pointer accent-emerald-400"
-              title={`Ajustar volume do Spotify: ${spotifyVolume}%`}
-            />
+            {/* Marcador Mínimo */}
+            <span className="text-[8px] font-mono text-text-secondary/70 select-none font-semibold">0</span>
+
+            {/* Trilho Interativo com Barra Acompanhando a Movimentação */}
+            <div className="relative w-16 flex items-center h-3.5 cursor-pointer group/bar">
+              {/* Trilho Fundo */}
+              <div className="absolute left-0 right-0 h-1 bg-dark-surface border border-dark-border/80 rounded-full overflow-hidden shadow-inner">
+                {/* Barra Preenchida Dinâmica que acompanha o volume */}
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)] rounded-full transition-all duration-75"
+                  style={{ width: `${spotifyVolume}%` }}
+                />
+              </div>
+
+              {/* Marcador Físico de Mínimo */}
+              <div
+                className="absolute left-0 w-0.5 h-2 bg-text-secondary/60 rounded-full pointer-events-none"
+                title="Mínimo (0%)"
+              />
+
+              {/* Marcador Físico de Máximo */}
+              <div
+                className="absolute right-0 w-0.5 h-2 bg-text-secondary/60 rounded-full pointer-events-none"
+                title="Máximo (100%)"
+              />
+
+              {/* Thumb / Indicador que acompanha a barra */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border border-emerald-400 shadow-[0_0_6px_#34d399] pointer-events-none transition-all duration-75 group-hover/bar:scale-125"
+                style={{ left: `${spotifyVolume}%` }}
+              />
+
+              {/* Input Nativo Invisível */}
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={spotifyVolume}
+                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                title={`Ajustar volume do Spotify: ${spotifyVolume}% (Mínimo: 0% | Máximo: 100%)`}
+              />
+            </div>
+
+            {/* Marcador Máximo */}
+            <span className="text-[8px] font-mono text-text-secondary/70 select-none font-semibold">100</span>
             <span className="font-mono text-emerald-400 text-[10px] w-6 text-right font-medium">
               {spotifyVolume}%
             </span>
